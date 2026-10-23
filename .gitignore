@@ -1,10 +1,13 @@
 node_modules/
 dist/
+*.tsbuildinfo
 .DS_Store
 .env
 .env.*
 !.env.example
 .wrangler/
+.dev.vars
+.private/
 coverage/
 playwright-report/
 test-results/

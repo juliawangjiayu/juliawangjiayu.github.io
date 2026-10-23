@@ -11,6 +11,13 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "tests/**/*.ts", "src/**/*.ts", "scripts/**/*.mjs"]
+  "include": [
+    "vite.config.ts",
+    "tests/**/*.ts",
+    "src/**/*.ts",
+    "scripts/**/*.ts",
+    "scripts/**/*.mjs",
+    "worker/**/*.ts"
+  ]
 }
 
