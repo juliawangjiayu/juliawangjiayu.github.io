@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CollectionPath } from '../components/CollectionPath.tsx';
+import { CollectionLeafIndex } from '../components/CollectionLeafIndex.tsx';
 import { collections } from '../content/data.ts';
 import { buildPathLayout } from '../lib/pathLayout.ts';
 import { selectCollectionCovers } from './collectionCovers.ts';
@@ -18,11 +19,14 @@ export function CollectionsPage() {
 
   return (
     <main className="collections-page">
-      <header className="collections-heading">
-        <p className="page-kicker">A photographic path</p>
-        <h1>Collections</h1>
-        <p>Follow the line slowly. Each stop opens a different part of the archive.</p>
-      </header>
+      <section className="collections-hero">
+        <header className="collections-heading">
+          <p className="page-kicker">A photographic path</p>
+          <h1>Collections</h1>
+          <p>Follow the line slowly. Each stop opens a different part of the archive.</p>
+        </header>
+        <CollectionLeafIndex covers={covers} />
+      </section>
       <CollectionPath covers={covers} nodes={nodes} />
     </main>
   );

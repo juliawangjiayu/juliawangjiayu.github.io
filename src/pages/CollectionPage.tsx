@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react';
 import { AppLink } from '../components/AppLink.tsx';
 import { PhotoViewer } from '../components/PhotoViewer.tsx';
 import { findCollection } from '../content/data.ts';
+import { collectionDescription } from '../lib/collectionPresentation.ts';
 
 export function CollectionPage({ collectionId }: { collectionId: string }) {
   const collection = findCollection(collectionId);
@@ -16,6 +17,8 @@ export function CollectionPage({ collectionId }: { collectionId: string }) {
     );
   }
 
+  const description = collectionDescription(collection.description);
+
   return (
     <main className="collection-page">
       <header className="collection-page__header">
@@ -23,7 +26,10 @@ export function CollectionPage({ collectionId }: { collectionId: string }) {
           <ArrowLeft size={17} strokeWidth={1.6} aria-hidden="true" />
           Collections
         </AppLink>
-        <h1>{collection.title}</h1>
+        <div className="collection-page__identity">
+          <h1>{collection.title}</h1>
+          {description && <p>{description}</p>}
+        </div>
       </header>
       <PhotoViewer photos={collection.photos} collectionTitle={collection.title} />
     </main>

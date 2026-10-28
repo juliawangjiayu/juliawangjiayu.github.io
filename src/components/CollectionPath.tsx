@@ -1,6 +1,7 @@
 import { AppLink } from './AppLink.tsx';
 import { pathForCollection } from '../router.ts';
-import { buildPathData, type PathNode } from '../lib/pathLayout.ts';
+import { collectionDescription, collectionNodeId } from '../lib/collectionPresentation.ts';
+import { buildPathData, calculateCollectionPathHeight, type PathNode } from '../lib/pathLayout.ts';
 import type { CollectionCover } from '../pages/collectionCovers.ts';
 
 type CollectionPathProps = {
@@ -9,7 +10,12 @@ type CollectionPathProps = {
 };
 
 export function CollectionPath({ covers, nodes }: CollectionPathProps) {
-  const height = (nodes.at(-1)?.y ?? 0) + 430;
+  const finalCover = covers.at(-1);
+  const height = calculateCollectionPathHeight(nodes, finalCover ? {
+    width: finalCover.photo.image.width,
+    height: finalCover.photo.image.height,
+    hasDescription: Boolean(collectionDescription(finalCover.collection.description)),
+  } : undefined);
 
   return (
     <div className="collection-path" style={{ height }}>
@@ -23,9 +29,11 @@ export function CollectionPath({ covers, nodes }: CollectionPathProps) {
       </svg>
       {covers.map(({ collection, photo, orientation }, index) => {
         const node = nodes[index];
+        const description = collectionDescription(collection.description);
         return (
           <article
             className={`collection-node is-${orientation}`}
+            id={collectionNodeId(collection.id)}
             style={{ '--node-x': `${node.x}%`, '--node-y': `${node.y}px` } as React.CSSProperties}
             key={collection.id}
           >
@@ -44,8 +52,11 @@ export function CollectionPath({ covers, nodes }: CollectionPathProps) {
                 />
               </figure>
               <span className="collection-node__meta">
-                <span className="collection-node__title">{collection.title}</span>
-                <span className="collection-node__count">{collection.photos.length} photographs</span>
+                <span className="collection-node__summary">
+                  <span className="collection-node__title">{collection.title}</span>
+                  <span className="collection-node__count">{collection.photos.length} photographs</span>
+                </span>
+                {description && <span className="collection-node__description">{description}</span>}
               </span>
             </AppLink>
           </article>

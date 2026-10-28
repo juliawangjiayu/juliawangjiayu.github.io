@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Copy, Minus, Plus, Share2 } from 'lucide-react';
 
 import { GoogleMapPicker } from '../components/GoogleMapPicker.tsx';
@@ -14,6 +14,12 @@ import {
   type GuessPoint,
   type PublicRound,
 } from '../lib/gameApi.ts';
+import {
+  calculateViewerPanBounds,
+  createViewerState,
+  setViewerPan,
+  setViewerZoomWithinBounds,
+} from '../lib/viewerState.ts';
 
 const modes: Array<{ id: GameMode; name: string; note: string }> = [
   { id: 'easy', name: 'Easy', note: 'Closer landmarks and wider contexts' },
@@ -40,7 +46,15 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
   const [result, setResult] = useState<AnswerResult | null>(null);
   const [targetChallenge, setTargetChallenge] = useState<ChallengeSummary | null>(null);
   const [sharedChallenge, setSharedChallenge] = useState<ChallengeSummary | null>(null);
-  const [photoZoom, setPhotoZoom] = useState(1);
+  const [photoView, setPhotoView] = useState(() => createViewerState());
+  const [isPhotoDragging, setIsPhotoDragging] = useState(false);
+  const photoViewportRef = useRef<HTMLDivElement>(null);
+  const photoImageRef = useRef<HTMLImageElement>(null);
+  const photoPanGesture = useRef<{
+    pointerId: number;
+    lastX: number;
+    lastY: number;
+  } | null>(null);
   const [totalScore, setTotalScore] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -114,8 +128,41 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     setRound(result.nextRound);
     setPoint(null);
     setResult(null);
-    setPhotoZoom(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    setPhotoView(createViewerState());
+    setIsPhotoDragging(false);
+    photoPanGesture.current = null;
+  }, [round?.sessionId, round?.round]);
+
+  const photoPanBounds = (zoom: number) => {
+    const viewport = photoViewportRef.current;
+    const image = photoImageRef.current;
+    if (!viewport || !image) return { maxX: 0, maxY: 0 };
+    return calculateViewerPanBounds(
+      viewport.clientWidth,
+      viewport.clientHeight,
+      image.clientWidth,
+      image.clientHeight,
+      zoom,
+    );
+  };
+
+  const zoomPhotoBy = (amount: number) => {
+    setPhotoView((value) => {
+      const zoom = Math.min(2, Math.max(1, value.zoom + amount));
+      return setViewerZoomWithinBounds(value, zoom, photoPanBounds(zoom));
+    });
+  };
+
+  const finishPhotoPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    photoPanGesture.current = null;
+    setIsPhotoDragging(false);
   };
 
   const share = async () => {
@@ -205,26 +252,59 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
       </header>
 
       <section className="guess-photo-stage">
-        <div className="guess-photo-stage__viewport">
+        <div
+          className={`guess-photo-stage__viewport${photoView.zoom > 1 ? ' is-zoomed' : ''}${isPhotoDragging ? ' is-dragging' : ''}`}
+          ref={photoViewportRef}
+          onPointerDown={(event) => {
+            if (photoView.zoom <= 1) return;
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            photoPanGesture.current = {
+              pointerId: event.pointerId,
+              lastX: event.clientX,
+              lastY: event.clientY,
+            };
+            setIsPhotoDragging(true);
+          }}
+          onPointerMove={(event) => {
+            const gesture = photoPanGesture.current;
+            if (!gesture || gesture.pointerId !== event.pointerId) return;
+            event.preventDefault();
+            const deltaX = event.clientX - gesture.lastX;
+            const deltaY = event.clientY - gesture.lastY;
+            gesture.lastX = event.clientX;
+            gesture.lastY = event.clientY;
+            setPhotoView((value) => setViewerPan(
+              value,
+              value.panX + deltaX,
+              value.panY + deltaY,
+              photoPanBounds(value.zoom),
+            ));
+          }}
+          onPointerUp={finishPhotoPan}
+          onPointerCancel={finishPhotoPan}
+        >
           <img
+            ref={photoImageRef}
             alt={`Guess Where round ${round.round}`}
+            draggable={false}
             src={round.photo.imageUrl}
-            style={{ transform: `scale(${photoZoom})` }}
+            style={{ transform: `translate(${photoView.panX}px, ${photoView.panY}px) scale(${photoView.zoom})` }}
           />
         </div>
         <div className="guess-photo-stage__tools" aria-label="Photo zoom controls">
           <button
             aria-label="Zoom out"
-            disabled={photoZoom <= 1}
-            onClick={() => setPhotoZoom((zoom) => Math.max(1, zoom - 0.25))}
+            disabled={photoView.zoom <= 1}
+            onClick={() => zoomPhotoBy(-0.25)}
             type="button"
           >
             <Minus size={20} />
           </button>
           <button
             aria-label="Zoom in"
-            disabled={photoZoom >= 2}
-            onClick={() => setPhotoZoom((zoom) => Math.min(2, zoom + 0.25))}
+            disabled={photoView.zoom >= 2}
+            onClick={() => zoomPhotoBy(0.25)}
             type="button"
           >
             <Plus size={20} />
