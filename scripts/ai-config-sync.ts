@@ -81,7 +81,7 @@ export function normalizeLocalWorkerEndpoint(endpoint: string): string {
   const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
   const isLoopback = loopbackHosts.has(parsed.hostname);
   const isProductionWorker = parsed.protocol === "https:"
-    && /^julia-photo-guess\.[a-z0-9-]+\.workers\.dev$/i.test(parsed.hostname);
+    && parsed.hostname === "julia-photo-guess.juliawangjiayu-github-io.workers.dev";
   if (
     (!isLoopback && !isProductionWorker)
     || (isLoopback && !["http:", "https:"].includes(parsed.protocol))

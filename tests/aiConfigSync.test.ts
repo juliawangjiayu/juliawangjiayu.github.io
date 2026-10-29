@@ -110,6 +110,12 @@ test("AI sync accepts loopback and the named HTTPS workers.dev production endpoi
     ),
     "https://julia-photo-guess.juliawangjiayu-github-io.workers.dev",
   );
+  assert.throws(
+    () => normalizeLocalWorkerEndpoint(
+      "https://julia-photo-guess.attacker.workers.dev",
+    ),
+    /Worker endpoint/,
+  );
   assert.throws(() => normalizeLocalWorkerEndpoint("https://photos.example.com"), /Worker endpoint/);
   assert.throws(
     () => normalizeLocalWorkerEndpoint(
