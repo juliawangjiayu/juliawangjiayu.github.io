@@ -90,18 +90,6 @@
   --line-strong: rgba(32, 33, 31, 0.58);
 }
 
-.collections-path-restored::before {
-  position: absolute;
-  z-index: -1;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 100vw;
-  background: var(--paper);
-  content: '';
-  transform: translateX(-50%);
-}
-
 /* Collection detail carries the same green and a small title motif. */
 .collection-page__header {
   min-height: 122px;
