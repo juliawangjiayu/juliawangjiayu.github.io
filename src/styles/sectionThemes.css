@@ -83,7 +83,6 @@
   position: relative;
   display: flow-root;
   isolation: isolate;
-  --paper: #f1eee7;
   --paper-raised: #f8f5ee;
   --ink: #20211f;
   --ink-soft: #66665f;
