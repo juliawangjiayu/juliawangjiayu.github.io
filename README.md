@@ -62,4 +62,41 @@ npm run sync:ai-config -- --endpoint http://localhost:8787
 
 Photo Booth SQLite is the private authoring source. Local and production D1 are intentionally small runtime replicas, not shared physical databases: a deployed Cloudflare Worker cannot open a SQLite file on a Mac, and the public runtime should not receive Photo Booth drafts or unrelated administration data.
 
-Before deploying, replace the placeholder D1 `database_id` in `wrangler.toml` with the ID created in Cloudflare.
+The production D1 `database_id` is committed in `wrangler.toml`; secret values remain outside Git.
+
+## Production deployment
+
+The production Worker is deployed at:
+
+`https://julia-photo-guess.juliawangjiayu-github-io.workers.dev`
+
+Apply committed D1 migrations and deploy the Worker with the three values in the ignored `.dev.vars` file uploaded as Cloudflare Secrets:
+
+```sh
+npx wrangler d1 migrations apply julia-photo-guess --remote
+npx wrangler deploy --secrets-file .dev.vars
+```
+
+Publish the reviewed private game subset from Photo Booth after every game-data change:
+
+```sh
+PHOTO_BOOTH_DB="../photo-booth/.local/studio.sqlite3" \
+PHOTO_SITE_ADMIN_TOKEN="the-same-token-as-.dev.vars" \
+npm run sync:game -- \
+  --endpoint https://julia-photo-guess.juliawangjiayu-github-io.workers.dev
+```
+
+After a Photo Booth AI configuration has been tested and activated, publish that exact immutable version with:
+
+```sh
+PHOTO_SITE_WORKER_URL="https://julia-photo-guess.juliawangjiayu-github-io.workers.dev" \
+npm run sync:ai-config
+```
+
+The production sync accepts only the named HTTPS `workers.dev` Worker origin; redirects, arbitrary hosts, credentials, paths, query strings, and fragments are rejected before the publisher token is sent.
+
+GitHub Pages deploys from `main` through `.github/workflows/deploy-pages.yml`. Configure these GitHub Actions secrets before the first Pages run:
+
+- `VITE_WORKER_BASE_URL`
+- `VITE_GOOGLE_MAPS_API_KEY`
+- `VITE_GOOGLE_MAP_ID`

@@ -75,20 +75,25 @@ export function normalizeLocalWorkerEndpoint(endpoint: string): string {
   try {
     parsed = new URL(endpoint.trim());
   } catch {
-    throw new Error("Enter a valid local Worker endpoint.");
+    throw new Error("Enter a valid Worker endpoint.");
   }
 
   const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
+  const isLoopback = loopbackHosts.has(parsed.hostname);
+  const isProductionWorker = parsed.protocol === "https:"
+    && /^julia-photo-guess\.[a-z0-9-]+\.workers\.dev$/i.test(parsed.hostname);
   if (
-    !loopbackHosts.has(parsed.hostname)
-    || !["http:", "https:"].includes(parsed.protocol)
+    (!isLoopback && !isProductionWorker)
+    || (isLoopback && !["http:", "https:"].includes(parsed.protocol))
     || parsed.username
     || parsed.password
     || parsed.search
     || parsed.hash
     || (parsed.pathname !== "/" && parsed.pathname !== "")
   ) {
-    throw new Error("The local Worker endpoint must be a plain localhost or loopback URL.");
+    throw new Error(
+      "The Worker endpoint must be loopback or the named HTTPS workers.dev URL.",
+    );
   }
 
   return parsed.origin;

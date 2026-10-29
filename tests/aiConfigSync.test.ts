@@ -102,11 +102,20 @@ test("local AI sync fails before publication when Photo Booth has no active vers
   }
 });
 
-test("local AI sync accepts loopback only and publishes the existing authenticated contract", async () => {
+test("AI sync accepts loopback and the named HTTPS workers.dev production endpoint", async () => {
   assert.equal(normalizeLocalWorkerEndpoint("http://localhost:8787/"), "http://localhost:8787");
+  assert.equal(
+    normalizeLocalWorkerEndpoint(
+      "https://julia-photo-guess.juliawangjiayu-github-io.workers.dev/",
+    ),
+    "https://julia-photo-guess.juliawangjiayu-github-io.workers.dev",
+  );
+  assert.throws(() => normalizeLocalWorkerEndpoint("https://photos.example.com"), /Worker endpoint/);
   assert.throws(
-    () => normalizeLocalWorkerEndpoint("https://photos.example.com"),
-    /local Worker endpoint/,
+    () => normalizeLocalWorkerEndpoint(
+      "http://julia-photo-guess.juliawangjiayu-github-io.workers.dev",
+    ),
+    /Worker endpoint/,
   );
 
   const fixture = configurationDatabase();

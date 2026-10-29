@@ -8,5 +8,5 @@ ALLOWED_ORIGINS = "http://127.0.0.1:4173,http://localhost:4173,http://127.0.0.1:
 [[d1_databases]]
 binding = "DB"
 database_name = "julia-photo-guess"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "8ca0ff2d-a19e-4920-b2bc-9c6c34eb2c4d"
 migrations_dir = "worker/migrations"
