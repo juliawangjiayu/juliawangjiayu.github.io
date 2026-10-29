@@ -19,6 +19,11 @@ function NotFoundPage() {
 
 export default function App() {
   const route = useRoute();
+  const sectionTheme = route.name === 'collections' || route.name === 'collection'
+    ? 'site-shell--collections'
+    : route.name === 'guess-where' || route.name === 'guess-where-challenge'
+      ? 'site-shell--guess'
+      : '';
   let page;
 
   if (route.name === 'home') page = <HomePage />;
@@ -30,7 +35,7 @@ export default function App() {
   else page = <NotFoundPage />;
 
   return (
-    <div className="site-shell">
+    <div className={`site-shell ${sectionTheme}`}>
       <SiteHeader route={route} />
       {page}
     </div>

@@ -1,0 +1,450 @@
+.site-shell--collections {
+  color-scheme: light;
+  --paper: #eaf0e6;
+  --paper-raised: #f3f7ef;
+  --ink: #334333;
+  --ink-soft: #657363;
+  --line: rgba(51, 67, 51, 0.2);
+  --line-strong: rgba(51, 67, 51, 0.52);
+  --focus: #637e58;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.site-shell--guess {
+  color-scheme: light;
+  --paper: #efebf5;
+  --paper-raised: #f8f5fb;
+  --ink: #373449;
+  --ink-soft: #716c82;
+  --line: rgba(55, 52, 73, 0.2);
+  --line-strong: rgba(55, 52, 73, 0.52);
+  --focus: #75658e;
+  --guess-accent: #75658e;
+  --round: ui-rounded, "Avenir Next", Avenir, "Trebuchet MS", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.site-shell--collections .site-nav__link,
+.site-shell--guess .site-nav__link {
+  font-family: ui-rounded, "Avenir Next", Avenir, "Trebuchet MS", sans-serif;
+}
+
+.site-shell--collections .page-kicker,
+.site-shell--guess .page-kicker {
+  color: var(--focus);
+  font-family: ui-rounded, "Avenir Next", Avenir, "Trebuchet MS", sans-serif;
+}
+
+/* The frog belongs to the Index heading, while the existing path keeps its colors and layout. */
+.collections-hero {
+  background: radial-gradient(ellipse at 50% 51%, rgba(213, 228, 207, 0.74), transparent 48%);
+}
+
+.collections-heading__title {
+  position: relative;
+  display: inline-block;
+}
+
+.collections-heading__title h1 {
+  font-family: ui-rounded, "Avenir Next", Avenir, "Trebuchet MS", sans-serif;
+  font-size: clamp(58px, 8vw, 118px);
+  font-weight: 600;
+  letter-spacing: -0.08em;
+}
+
+.collections-heading__frog {
+  position: absolute;
+  top: -20px;
+  right: -66px;
+  width: 78px;
+  height: 65px;
+  pointer-events: none;
+}
+
+.site-shell--collections .collection-index__leaf {
+  border-color: rgba(72, 99, 66, 0.2);
+  background: linear-gradient(145deg, #e4ebde, #d2e0ca);
+  box-shadow: 0 9px 22px rgba(53, 70, 47, 0.08);
+}
+
+.site-shell--collections .collection-index__leaf strong {
+  font-family: ui-rounded, "Avenir Next", Avenir, "Trebuchet MS", sans-serif;
+  font-weight: 600;
+}
+
+.site-shell--collections .collection-index__leaf:hover,
+.site-shell--collections .collection-index__leaf:focus-visible {
+  background: linear-gradient(145deg, #ecf2e6, #d8e6d0);
+}
+
+.collections-path-restored {
+  position: relative;
+  display: flow-root;
+  isolation: isolate;
+  --paper: #f1eee7;
+  --paper-raised: #f8f5ee;
+  --ink: #20211f;
+  --ink-soft: #66665f;
+  --line: rgba(32, 33, 31, 0.22);
+  --line-strong: rgba(32, 33, 31, 0.58);
+}
+
+.collections-path-restored::before {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  background: var(--paper);
+  content: '';
+  transform: translateX(-50%);
+}
+
+/* Collection detail carries the same green and a small title motif. */
+.collection-page__header {
+  min-height: 122px;
+  padding-top: 17px;
+  padding-bottom: 17px;
+}
+
+.collection-page__header h1 {
+  font-family: ui-rounded, "Avenir Next", Avenir, "Trebuchet MS", sans-serif;
+  font-size: clamp(32px, 3.6vw, 54px);
+  font-weight: 600;
+  letter-spacing: -0.065em;
+}
+
+.collection-page__identity p {
+  margin-top: 9px;
+  font-family: var(--serif);
+  font-size: 16px;
+}
+
+.collection-page__frog {
+  position: absolute;
+  top: 22px;
+  right: clamp(24px, 8vw, 128px);
+  width: 62px;
+  height: 52px;
+  pointer-events: none;
+}
+
+.site-shell--collections .viewer-mode-switch button {
+  font-family: ui-rounded, "Avenir Next", Avenir, "Trebuchet MS", sans-serif;
+  font-size: 13px;
+}
+
+/* The witch and flight line are static accents on both Guess Where screens. */
+.guess-intro {
+  position: relative;
+  align-items: center;
+  padding-top: clamp(48px, 7vh, 90px);
+}
+
+.guess-intro__heading {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  max-width: min(820px, 100%);
+  text-align: center;
+}
+
+.guess-intro h1 {
+  font-family: var(--round);
+  font-size: clamp(57px, 7.7vw, 100px);
+  font-weight: 650;
+  letter-spacing: -0.075em;
+}
+
+.guess-intro__heading > p:last-of-type {
+  max-width: 570px;
+  margin: 18px auto 0;
+  color: var(--ink-soft);
+  font-family: var(--serif);
+  font-size: 21px;
+}
+
+.guess-intro__witch {
+  position: absolute;
+  top: -17px;
+  right: -86px;
+  width: 87px;
+  height: 65px;
+  pointer-events: none;
+}
+
+.guess-intro__trail,
+.guess-game__trail {
+  position: absolute;
+  top: 25px;
+  right: 5%;
+  width: 245px;
+  height: 158px;
+  color: #9b8ba9;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.guess-modes {
+  z-index: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  width: min(950px, 100%);
+  margin-top: 48px;
+  border: 0;
+}
+
+.site-shell--guess .guess-mode,
+.site-shell--guess .guess-mode:last-child {
+  position: relative;
+  min-height: 166px;
+  border: 1px solid rgba(89, 77, 111, 0.21);
+  padding: 23px 25px;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.site-shell--guess .guess-mode::before {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  color: #b99263;
+  content: '✧';
+  font: 27px var(--serif);
+}
+
+.site-shell--guess .guess-mode:nth-child(odd)::before {
+  content: '✦';
+}
+
+.site-shell--guess .guess-mode span {
+  font-family: var(--round);
+  font-size: clamp(26px, 3vw, 33px);
+  font-weight: 600;
+  letter-spacing: -0.05em;
+}
+
+.site-shell--guess .guess-mode small {
+  margin-top: 7px;
+  font-size: 14px;
+}
+
+.site-shell--guess .guess-mode:not(:disabled) {
+  transition: none;
+}
+
+.site-shell--guess .guess-mode:not(:disabled):hover {
+  padding-left: 25px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.site-shell--guess .challenge-invite {
+  align-self: center;
+  border: 1px solid var(--line);
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.34);
+  text-align: center;
+}
+
+.site-shell--guess .challenge-invite > p:not(.page-kicker) {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.guess-game {
+  position: relative;
+  padding-top: 24px;
+}
+
+.guess-game__trail {
+  top: -14px;
+  right: 7%;
+  width: 180px;
+  height: 115px;
+}
+
+.guess-game__progress {
+  position: relative;
+  z-index: 1;
+  align-items: center;
+  margin-bottom: 20px;
+  color: var(--focus);
+  font-family: var(--round);
+  font-size: 16px;
+}
+
+.guess-game__round-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.guess-game__witch {
+  width: 65px;
+  height: 47px;
+  pointer-events: none;
+}
+
+.guess-game__progress strong {
+  border: 1px solid rgba(89, 77, 111, 0.24);
+  border-radius: 999px;
+  padding: 7px 15px;
+  background: rgba(255, 255, 255, 0.35);
+  color: var(--focus);
+  font-family: var(--round);
+  font-size: 15px;
+}
+
+.guess-map-stage {
+  position: relative;
+}
+
+.guess-map-stage::before {
+  position: absolute;
+  top: -41px;
+  right: 1%;
+  color: #d3a86d;
+  content: '✧';
+  font: 25px var(--serif);
+  pointer-events: none;
+}
+
+.site-shell--guess .challenge-invite button,
+.site-shell--guess .guess-submit-row button,
+.site-shell--guess .game-finish > button,
+.site-shell--guess .share-card button {
+  border-color: var(--guess-accent);
+  background: var(--guess-accent);
+  color: #fff;
+  font-family: var(--round);
+}
+
+@media (max-width: 760px) {
+  .collections-heading__title h1 {
+    font-size: clamp(52px, 10vw, 77px);
+  }
+
+  .collections-heading__frog {
+    top: -28px;
+    right: -38px;
+    width: 56px;
+  }
+
+  .collection-page__header {
+    min-height: 130px;
+    justify-content: center;
+    padding-top: 46px;
+  }
+
+  .collection-page__back {
+    top: 9px;
+  }
+
+  .collection-page__identity {
+    max-width: calc(100% - 40px);
+    text-align: center;
+  }
+
+  .collection-page__identity h1 {
+    overflow: visible;
+    font-size: clamp(30px, 6vw, 44px);
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .collection-page__identity p {
+    margin-right: auto;
+    font-size: 15px;
+  }
+
+  .collection-page__frog {
+    top: 8px;
+    right: var(--page-pad);
+    width: 49px;
+  }
+
+  .guess-intro__witch {
+    top: -51px;
+    right: -22px;
+    width: 59px;
+  }
+
+  .guess-intro__trail {
+    right: -6%;
+    width: 165px;
+    opacity: 0.48;
+  }
+
+  .guess-intro h1 {
+    font-size: clamp(48px, 10.5vw, 73px);
+  }
+
+  .guess-intro__heading > p:last-of-type {
+    font-size: 17px;
+  }
+
+  .guess-modes {
+    gap: 10px;
+  }
+
+  .site-shell--guess .guess-mode,
+  .site-shell--guess .guess-mode:last-child {
+    min-height: 145px;
+    padding: 17px;
+  }
+
+  .site-shell--guess .guess-mode:not(:disabled):hover {
+    padding-left: 17px;
+  }
+
+  .site-shell--guess .guess-mode span {
+    font-size: 25px;
+  }
+
+  .site-shell--guess .guess-mode small {
+    font-size: 12px;
+  }
+
+  .guess-game__trail {
+    right: 4%;
+    width: 130px;
+    opacity: 0.5;
+  }
+}
+
+@media (max-width: 430px) {
+  .collections-heading__title h1 {
+    font-size: clamp(43px, 12vw, 56px);
+  }
+
+  .collections-heading__frog {
+    top: -36px;
+    right: -5px;
+    width: 48px;
+  }
+
+  .guess-modes {
+    grid-template-columns: 1fr;
+  }
+
+  .site-shell--guess .guess-mode,
+  .site-shell--guess .guess-mode:last-child {
+    min-height: 110px;
+  }
+
+  .guess-game__witch {
+    width: 47px;
+  }
+
+  .guess-game__progress {
+    font-size: 13px;
+  }
+
+  .guess-game__progress strong {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}

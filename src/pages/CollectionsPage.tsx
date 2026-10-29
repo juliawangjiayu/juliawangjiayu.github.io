@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CollectionPath } from '../components/CollectionPath.tsx';
 import { CollectionLeafIndex } from '../components/CollectionLeafIndex.tsx';
+import { FrogMotif } from '../components/SectionMotifs.tsx';
 import { collections } from '../content/data.ts';
 import { buildPathLayout } from '../lib/pathLayout.ts';
 import { selectCollectionCovers } from './collectionCovers.ts';
@@ -22,12 +23,17 @@ export function CollectionsPage() {
       <section className="collections-hero">
         <header className="collections-heading">
           <p className="page-kicker">A photographic path</p>
-          <h1>Collections</h1>
+          <div className="collections-heading__title">
+            <h1>Collections</h1>
+            <FrogMotif className="collections-heading__frog" />
+          </div>
           <p>Follow the line slowly. Each stop opens a different part of the archive.</p>
         </header>
         <CollectionLeafIndex covers={covers} />
       </section>
-      <CollectionPath covers={covers} nodes={nodes} />
+      <div className="collections-path-restored">
+        <CollectionPath covers={covers} nodes={nodes} />
+      </div>
     </main>
   );
 }

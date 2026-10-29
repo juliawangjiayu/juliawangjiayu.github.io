@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { AppLink } from '../components/AppLink.tsx';
 import { PhotoViewer } from '../components/PhotoViewer.tsx';
+import { FrogMotif } from '../components/SectionMotifs.tsx';
 import { findCollection } from '../content/data.ts';
 import { collectionDescription } from '../lib/collectionPresentation.ts';
 
@@ -30,6 +31,7 @@ export function CollectionPage({ collectionId }: { collectionId: string }) {
           <h1>{collection.title}</h1>
           {description && <p>{description}</p>}
         </div>
+        <FrogMotif className="collection-page__frog" />
       </header>
       <PhotoViewer photos={collection.photos} collectionTitle={collection.title} />
     </main>

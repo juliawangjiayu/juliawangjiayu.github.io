@@ -195,7 +195,7 @@ export function PhotoViewer({ photos, collectionTitle }: PhotoViewerProps) {
           onClick={() => changeViewMode('overview')}
           aria-pressed={viewMode === 'overview'}
         >
-          Overview
+          Gallery
         </button>
       </div>
 
@@ -229,19 +229,20 @@ export function PhotoViewer({ photos, collectionTitle }: PhotoViewerProps) {
         </div>
       ) : (
         <>
-          {count > 1 && (
-            <button
-              className="viewer-side viewer-side--previous"
-              type="button"
-              onClick={() => move(-1)}
-              aria-label="Previous photograph"
-            >
-              <img src={previous.image.thumbnail} alt="" aria-hidden="true" />
-              <ChevronLeft aria-hidden="true" />
-            </button>
-          )}
+          <div className="viewer-album-stage">
+            {count > 1 && (
+              <button
+                className="viewer-side viewer-side--previous"
+                type="button"
+                onClick={() => move(-1)}
+                aria-label="Previous photograph"
+              >
+                <img src={previous.image.thumbnail} alt="" aria-hidden="true" />
+                <ChevronLeft aria-hidden="true" />
+              </button>
+            )}
 
-          <div className={state.infoVisible ? 'viewer-center has-info' : 'viewer-center'}>
+            <div className={state.infoVisible ? 'viewer-center has-info' : 'viewer-center'}>
             <div
               className={`viewer-current${state.zoom > 1 ? ' is-zoomed' : ''}${isDragging ? ' is-dragging' : ''}`}
               ref={viewportRef}
@@ -305,19 +306,20 @@ export function PhotoViewer({ photos, collectionTitle }: PhotoViewerProps) {
             {state.infoVisible && (
               <PhotoInfoCard photo={current} onClose={() => setState((value) => toggleViewerInfo(value))} />
             )}
-          </div>
+            </div>
 
-          {count > 1 && (
-            <button
-              className="viewer-side viewer-side--next"
-              type="button"
-              onClick={() => move(1)}
-              aria-label="Next photograph"
-            >
-              <img src={next.image.thumbnail} alt="" aria-hidden="true" />
-              <ChevronRight aria-hidden="true" />
-            </button>
-          )}
+            {count > 1 && (
+              <button
+                className="viewer-side viewer-side--next"
+                type="button"
+                onClick={() => move(1)}
+                aria-label="Next photograph"
+              >
+                <img src={next.image.thumbnail} alt="" aria-hidden="true" />
+                <ChevronRight aria-hidden="true" />
+              </button>
+            )}
+          </div>
 
           <div className="viewer-footer" aria-live="polite">
             <span>{String(state.index + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}</span>

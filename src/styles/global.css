@@ -1134,7 +1134,8 @@ img {
 .photo-viewer {
   position: relative;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: center;
   min-height: calc(100svh - var(--header-height) - 118px);
   padding: 20px clamp(64px, 7vw, 120px) 70px;
@@ -1142,12 +1143,12 @@ img {
 }
 
 .viewer-mode-switch {
-  position: absolute;
-  top: 12px;
-  right: var(--page-pad);
-  z-index: 10;
+  position: relative;
+  z-index: 5;
+  align-self: flex-end;
   display: inline-flex;
   gap: 3px;
+  margin: 0 0 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 3px;
@@ -1156,14 +1157,14 @@ img {
 }
 
 .viewer-mode-switch button {
-  min-height: 42px;
+  min-height: 34px;
   border: 0;
   border-radius: 999px;
-  padding: 0 16px;
+  padding: 0 12px;
   background: transparent;
   color: var(--ink-soft);
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   cursor: pointer;
   transition: background 180ms ease, color 180ms ease;
 }
@@ -1181,16 +1182,28 @@ img {
 }
 
 .photo-viewer.is-overview {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   min-height: 0;
-  padding: 88px var(--page-pad) 54px;
+  padding: 12px var(--page-pad) 54px;
   touch-action: auto;
+}
+
+.viewer-album-stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-height: 260px;
+  align-items: center;
+  justify-content: center;
 }
 
 .viewer-overview {
   display: grid;
   width: min(1440px, 100%);
-  margin: 0 auto;
+  margin: 8px auto 0;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 38px 20px;
 }
@@ -1717,7 +1730,11 @@ img {
 
   .photo-viewer.is-overview {
     min-height: 0;
-    padding: 82px var(--page-pad) 44px;
+    padding: 12px var(--page-pad) 44px;
+  }
+
+  .viewer-album-stage {
+    min-height: 240px;
   }
 
   .viewer-overview {
@@ -1818,8 +1835,8 @@ img {
   }
 
   .viewer-mode-switch button {
-    min-height: 44px;
-    padding: 0 13px;
+    min-height: 38px;
+    padding: 0 11px;
   }
 
   .viewer-overview {

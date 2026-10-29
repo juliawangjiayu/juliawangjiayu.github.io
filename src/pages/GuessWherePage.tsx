@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Copy, Minus, Plus, Share2 } from 'lucide-react';
 
 import { GoogleMapPicker } from '../components/GoogleMapPicker.tsx';
+import { FlightTrail, WitchMotif } from '../components/SectionMotifs.tsx';
 import {
   createChallenge,
   getChallenge,
@@ -207,10 +208,12 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
   if (!round) {
     return (
       <main className="guess-intro page-frame page-frame--column">
+        <FlightTrail className="guess-intro__trail" />
         <div className="guess-intro__heading">
           <p className="page-kicker">Five photographs · One world</p>
           <h1>Guess Where</h1>
           <p>Study the photograph, search if you need to, then place one final Pin.</p>
+          <WitchMotif className="guess-intro__witch" />
         </div>
 
         {challengeId && targetChallenge ? (
@@ -246,8 +249,12 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
 
   return (
     <main className="guess-game">
+      <FlightTrail className="guess-game__trail" />
       <header className="guess-game__progress">
-        <span>Round {round.round} / {round.totalRounds}</span>
+        <span className="guess-game__round-label">
+          Round {round.round} / {round.totalRounds}
+          <WitchMotif className="guess-game__witch" />
+        </span>
         <strong>{totalScore.toLocaleString()} pts</strong>
       </header>
 
