@@ -6,6 +6,7 @@ import { AboutPage } from './pages/AboutPage.tsx';
 import { GuessWherePage } from './pages/GuessWherePage.tsx';
 import { CollectionsPage } from './pages/CollectionsPage.tsx';
 import { CollectionPage } from './pages/CollectionPage.tsx';
+import { sectionThemeForRoute } from './lib/sectionTheme.ts';
 
 function NotFoundPage() {
   return (
@@ -19,11 +20,7 @@ function NotFoundPage() {
 
 export default function App() {
   const route = useRoute();
-  const sectionTheme = route.name === 'collections' || route.name === 'collection'
-    ? 'site-shell--collections'
-    : route.name === 'guess-where' || route.name === 'guess-where-challenge'
-      ? 'site-shell--guess'
-      : '';
+  const sectionTheme = sectionThemeForRoute(route.name);
   let page;
 
   if (route.name === 'home') page = <HomePage />;

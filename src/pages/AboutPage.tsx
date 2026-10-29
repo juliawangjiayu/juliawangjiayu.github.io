@@ -2,6 +2,7 @@ import { aboutContent, visibleAboutSections } from '../content/about.ts';
 import { photos } from '../content/data.ts';
 import aboutPhotoConfig from '../generated/about-photo.json';
 import { resolveAboutPhoto } from '../lib/aboutPhoto.ts';
+import { AboutMotifs } from '../components/AboutMotifs.tsx';
 
 const aboutPhotoId = 'p_e1db8e0c9043e6c8e92b';
 
@@ -24,6 +25,7 @@ export function AboutPage() {
           />
         </figure>
       )}
+      <AboutMotifs />
       <article className="about-copy">
         <p className="page-kicker">About</p>
         <h1>Julia Wang</h1>

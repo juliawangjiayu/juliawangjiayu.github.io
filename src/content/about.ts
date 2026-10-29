@@ -14,8 +14,8 @@ export type AboutSection = {
 
 export const aboutContent: AboutContent = {
   recentlyInterestedIn: [
-    'Walking without a route',
-    'How cities remember',
+    'AI video generation',
+    'How to become a tiktok influencer',
   ],
   wechatOfficialAccount: '',
   links: [],
