@@ -217,7 +217,7 @@ Use storage key `julia-photo-visitor-session`. `identityApi.ts` owns token read/
 
 - [ ] **Step 4: Implement provider and accessible dialog**
 
-The dialog carries the reason (`leave a message`, `save to leaderboard`, or `create a share card`), uses the exact low-assurance/privacy copy from the spec, clears email after every server response, traps focus, restores focus on close, and permits sign-out/use-another-identity.
+The dialog carries the reason (`leave a message`, `save to leaderboard`, or `create a same-five invitation`), uses the exact low-assurance/privacy copy from the spec, clears email after every server response, traps focus, restores focus on close, and permits sign-out/use-another-identity. Saving the local five-round review image never requires identity.
 
 - [ ] **Step 5: Wire provider and style responsive states**
 

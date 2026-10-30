@@ -9,7 +9,7 @@ Projects: `juliawangjiayu.github.io` and `photo-booth`
 Add a deliberately lightweight visitor identity to Julia Wang's photography website so a visitor can:
 
 - leave a message on one photograph or its Collection;
-- complete all five Guess Where rounds anonymously, then save a score or create a share card;
+- complete all five Guess Where rounds anonymously, review each answer, save a review image, then optionally save a score or create a same-five invitation;
 - keep one public best score per Guess Where mode;
 - return under the same public username by supplying the same username and email.
 
@@ -30,7 +30,7 @@ This feature must preserve the existing split architecture:
 - Identity is requested only when the visitor first tries to:
   - submit a message;
   - save a score to a leaderboard; or
-  - generate a persistent same-five challenge link and share card.
+  - generate a persistent same-five challenge link and invitation image.
 - The form asks for a unique username and an email. There is no password and no email verification code.
 - The visitor sees an explicit notice that this is a lightweight identity, not a high-security account.
 - The public username is the only public identity. There is no profile page.
@@ -58,16 +58,15 @@ This feature must preserve the existing split architecture:
 ### 2.3 Guess Where results
 
 - Finishing five rounds and seeing the result never requires identity.
-- The result page offers two independent actions:
-  1. `Create share card` — creates a same-five challenge URL and a downloadable 1200×630 image.
-  2. `Save to leaderboard` — compares this run with the visitor's saved best for the current mode.
-- Either action opens the lightweight identity dialog when needed, then resumes the original action after successful sign-in.
-- Share cards contain username, mode, total score, five round scores, QR code, and same-five challenge URL.
-- Share cards do not reveal correct answers, coordinates, radii, or place names.
-- Where supported, the Web Share API shares the generated PNG and link. Otherwise the UI offers PNG download and link copy.
+- Placing and submitting a Pin preserves the visitor's map center and zoom. After submission, reveal a visually distinct correct-answer Pin, the existing answer circle, and a connecting line. If both Pins are within the current view, a small broom-riding witch makes one short trip from the visitor's Pin to the correct Pin. If the answer is offscreen, show a visible route illustration from the visitor's Pin to the correct answer without moving the map. Then distance, proximity, and score become prominent in a result panel near the map. Offer `Check correct pin` as an optional camera change that fits both Pins into view. The line and result remain visible afterward. On desktop, the result must be readable without searching the map header; on mobile, it must remain beside the map. Reduced-motion preference or map interaction during travel skips the trip and shows the complete result. If animation setup fails, both Pins, line, distance, and score still appear.
+- After five rounds, the finished page shows two sections in this order: (1) a five-round review with each photograph, the visitor's guessed place, the actual answer place, and that round's score, followed by (2) a same-five invitation with QR code and visible challenge URL. Each section can be saved as its own image; neither save action depends on saving the other. The completed game and review remain viewable anonymously.
+- The review image includes all five rows and the total score. It intentionally contains correct answers; label it `Contains answers — share after friends play` near its save/share controls. It must not contain raw coordinates, answer radii, email, or session tokens. Never embed the review image or its answer text in the challenge URL, invitation image, public challenge preview, or leaderboard response.
+- The invitation image contains mode, total score, QR code, and same-five challenge URL, but no correct answers, guessed place names, coordinates, radii, or round results. Creating a persistent invitation link uses the lightweight identity dialog when needed; once created, the image can be downloaded separately. The existing challenge URL and QR functionality are reused.
+- `Save to leaderboard` remains a separate action and opens the identity dialog when needed. Downloading the local review image does not require sign-in. Where supported, Web Share may share either generated image; otherwise each has its own download control and the invitation retains Copy link.
+- The actual answer name comes from Photo Booth's `guess_where_entries.answer_name`, synchronized to Worker/D1 only and returned after that round has been submitted. The guessed place label uses the selected search candidate when available; a manually placed Pin is reverse-geocoded after submission. If a readable place cannot be resolved, show a neutral `Map Pin` label and the map position in the on-page review, without inventing a place name.
 - Leaderboards are separate for Easy, Medium, Hard, and Random.
 - Each username has only one visible row per mode: their historical best score.
-- A lower score never replaces the stored best but may still produce a share card.
+- A lower score never replaces the stored best but may still produce a review image and same-five invitation.
 - The mode-selection page links to the full leaderboards.
 - A result page shows the top three for the current mode and the current visitor's rank after saving.
 - Required explanatory copy:
@@ -100,7 +99,8 @@ The public site may display only:
 - published visitor messages;
 - Julia's public reply;
 - public username, score, mode, and rank;
-- challenge metadata already safe for a player.
+- challenge metadata already safe for a player;
+- the current player's per-round answer place only after that round is submitted, and the five-round review after finishing.
 
 It must never receive email verifiers, administrator state, rejected content, private review notes, answer coordinates before a round is submitted, or answer radii outside the existing post-answer result.
 
@@ -245,7 +245,7 @@ Ranking is score descending, then earliest `achieved_at`, then stable visitor ID
 - Repeating the same operation by the same visitor is idempotent.
 - A different visitor cannot claim that session afterward.
 - Challenge score and question IDs are always copied from the server-side completed session, never from request JSON.
-- `source_session_id` is unique: one completed source session has one canonical challenge URL. Repeated share-card creation returns that same challenge.
+- `source_session_id` is unique: one completed source session has one canonical challenge URL. Repeated invitation creation returns that same challenge.
 - Challenges do not expire in V1. Removing them later requires an explicit retention product decision and migration.
 
 ## 6. Public API
@@ -288,7 +288,9 @@ Target IDs are restricted to the same safe ID format generated by Photo Booth. A
   - Idempotently binds the session to the visitor.
 - `POST /api/challenges`
   - Now requires identity and a claimed completed session.
-  - Returns the same public challenge shape plus the creator username needed for the card.
+  - Returns the same public challenge shape plus the creator username needed for the invitation card; it never returns round answers or review rows.
+- `POST /api/game/:sessionId/answer`
+  - After validating and storing this round's guess, returns the Photo Booth answer name alongside the existing post-submit answer result. Before submission, public round and challenge responses contain no answer name.
 - `PUT /api/leaderboards/:mode/me`
   - Requires identity; input contains only `sessionId`.
   - Performs a transaction-like compare-and-update against the server score.
@@ -332,7 +334,7 @@ Approve/reject buttons are disabled while the request is in flight and repeated 
 
 ### 8.1 Identity dialog
 
-The dialog is shared by comments, share cards, and leaderboard saving. It explains why it appeared and preserves the pending action. On success, the dialog closes and the action continues exactly once.
+The dialog is shared by comments, invitation creation, and leaderboard saving. It explains why it appeared and preserves the pending action. On success, the dialog closes and the action continues exactly once. Saving the local review image does not open it.
 
 Suggested copy:
 
@@ -348,11 +350,11 @@ Each published entry shows username, date, text, and optional Julia reply. A vis
 
 When the photograph changes, the `This photo` tab loads the new target; the `Collection` tab remains on the current Collection. Request cancellation or response identity checks prevent a late response from the previous photograph appearing under the new one.
 
-### 8.3 Result page and share card
+### 8.3 Result page and two cards
 
-The finished score remains the visual focus. Two side-by-side action cards on desktop and stacked cards on mobile distinguish sharing from ranking.
+The finished score remains the visual focus. The five-round review appears first, the same-five invitation second, and the leaderboard action remains independent. On desktop, each section has a legible preview and its own Save image control; stack them on mobile. Make the invitation's Copy link visible next to its QR code.
 
-The share card is rendered client-side to Canvas after the server creates the challenge. It uses only same-origin/static visual assets plus generated text and QR pixels, avoiding a cross-origin-tainted canvas. The PNG is not uploaded or stored by the service.
+Both images are rendered client-side to Canvas using same-origin/static visual assets plus generated text and QR pixels, avoiding a cross-origin-tainted canvas. Neither PNG is uploaded or stored by the service. The review image is a spoiler-bearing personal record; the invitation image is answer-free.
 
 If card rendering fails, the same-five link remains usable and copyable. If system sharing is unavailable or rejects files, download and copy remain available.
 
@@ -408,8 +410,10 @@ The leaderboard preview is fetched independently so its failure does not prevent
 - message tabs switch targets correctly and stale requests cannot cross photos;
 - own pending comments are labelled and public comments are separated;
 - result actions remain independent;
+- each answered round shows distinct Pins, the witch's guess-to-answer journey, a visible score, and a reduced-motion/animation-failure fallback;
+- the finished page keeps five review rows in order and places the invitation after them;
 - new-best and lower-score copy is correct;
-- PNG download, QR/link copy, and Web Share fallbacks;
+- independent review/invitation PNG downloads, spoiler labelling, QR/link copy, and Web Share fallbacks;
 - anonymous five-round play remains unchanged;
 - keyboard focus, dialog escape/return focus, reduced motion, and mobile layout.
 
@@ -426,13 +430,13 @@ The leaderboard preview is fetched independently so its failure does not prevent
 
 1. An anonymous visitor completes five rounds without an identity prompt.
 2. They save a leaderboard score, create a new identity, and appear once in the correct mode.
-3. A lower replay does not replace that best but still creates a share card and same-five challenge.
+3. A lower replay does not replace that best; the visitor reviews all five guesses and correct places, saves a review image, then creates and separately saves a same-five invitation image.
 4. Another browser opens the challenge and receives exactly the same five photographs.
 5. The visitor submits photo and Collection messages; neither is publicly visible.
 6. Photo Booth shows both pending items. Julia approves one, rejects one, and replies as `Julia Wang`.
 7. Only the approved item and reply become public.
 8. The visitor edits it; it disappears publicly and returns to Pending in Photo Booth.
-9. No Worker/public response, static export, log, or local SQLite row contains plaintext visitor email or Guess Where private answers.
+9. No pre-answer Worker/public response, static export, log, or local SQLite copy contains Guess Where answer names or coordinates; post-answer results and the visitor's review may show that round's correct place. No plaintext visitor email is stored or exported.
 10. The flow works in current Safari and Chrome using the approved GitHub Pages + Worker split-domain deployment.
 
 ## 12. Rollout
@@ -441,11 +445,12 @@ The leaderboard preview is fetched independently so its failure does not prevent
 2. Add identity/session APIs and shared public client session handling.
 3. Add message APIs, public message panel, and ownership actions.
 4. Add administrator APIs and Photo Booth FastAPI proxy + Messages page.
-5. Add session claiming, leaderboards, redesigned result page, and share-card generation.
-6. Run local D1 migrations and full automated tests.
-7. Configure new Cloudflare secrets and Photo Booth Keychain credential.
-8. Deploy Worker first, then static frontend, then enable Photo Booth moderation.
-9. Perform the end-to-end acceptance flow before advertising messages or leaderboards.
+5. Improve each round's map reveal, including distinct Pins, witch travel, and a prominent score.
+6. Add session claiming, answer-name sync, leaderboards, a five-round review, and two separately downloadable cards.
+7. Run local D1 migrations and full automated tests.
+8. Configure new Cloudflare secrets and Photo Booth Keychain credential.
+9. Deploy Worker first, then static frontend, then enable Photo Booth moderation.
+10. Perform the end-to-end acceptance flow before advertising messages or leaderboards.
 
 Existing game sessions, challenges, static photographs, and Collections remain valid. There is no old visitor or message data to migrate.
 

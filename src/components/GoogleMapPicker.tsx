@@ -1,27 +1,37 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MapPin, Search } from 'lucide-react';
 
 import type { GuessPoint } from '../lib/gameApi.ts';
 import { interpretPlaceText } from '../lib/gameApi.ts';
 import {
   createAnswerCircle,
+  createAnswerConnection,
   createMap,
   createMarker,
   loadGoogleMaps,
+  projectRevealPoints,
+  showBothPins,
   searchGooglePlaces,
   type CircleLike,
   type MapLike,
   type MarkerLike,
+  type OverlayLike,
+  type PolylineLike,
   type PlaceCandidate,
 } from '../lib/googleMaps.ts';
+import { WitchMotif } from './SectionMotifs.tsx';
 
 type CorrectAnswer = GuessPoint & { radiusKm: 1 | 10 | 50 | 100 };
+type RevealFlight =
+  | { kind: 'map'; start: { x: number; y: number }; end: { x: number; y: number } }
+  | { kind: 'route' };
 
 type GoogleMapPickerProps = {
   value: GuessPoint | null;
   onChange: (point: GuessPoint) => void;
   correctAnswer?: CorrectAnswer | null;
   disabled?: boolean;
+  onRevealComplete?: () => void;
 };
 
 const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() ?? '';
@@ -32,14 +42,20 @@ export function GoogleMapPicker({
   onChange,
   correctAnswer = null,
   disabled = false,
+  onRevealComplete,
 }: GoogleMapPickerProps) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLike | null>(null);
   const markerRef = useRef<MarkerLike | null>(null);
   const answerMarkerRef = useRef<MarkerLike | null>(null);
   const circleRef = useRef<CircleLike | null>(null);
+  const lineRef = useRef<PolylineLike | null>(null);
+  const flightOverlayRef = useRef<OverlayLike | null>(null);
   const onChangeRef = useRef(onChange);
+  const onRevealCompleteRef = useRef(onRevealComplete);
+  const finishRevealRef = useRef<() => void>(() => {});
   const disabledRef = useRef(disabled);
+  const [flight, setFlight] = useState<RevealFlight | null>(null);
   const [mapState, setMapState] = useState<'loading' | 'ready' | 'missing-key' | 'error'>('loading');
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -48,6 +64,7 @@ export function GoogleMapPicker({
   const [interpretationNote, setInterpretationNote] = useState('');
 
   onChangeRef.current = onChange;
+  onRevealCompleteRef.current = onRevealComplete;
   disabledRef.current = disabled;
 
   useEffect(() => {
@@ -110,29 +127,102 @@ export function GoogleMapPicker({
   }, [mapState, value]);
 
   useEffect(() => {
+    let cancelled = false;
+    let idleListener: { remove(): void } | null = null;
+    let dragListener: { remove(): void } | null = null;
+    let zoomListener: { remove(): void } | null = null;
+    let flightStartTimer: number | null = null;
+    let zoomListenerTimer: number | null = null;
+    let finished = false;
+    const finish = () => {
+      if (cancelled || finished) return;
+      finished = true;
+      idleListener?.remove();
+      dragListener?.remove();
+      zoomListener?.remove();
+      flightOverlayRef.current?.setMap(null);
+      flightOverlayRef.current = null;
+      setFlight(null);
+      onRevealCompleteRef.current?.();
+    };
+    finishRevealRef.current = finish;
     const showAnswer = async () => {
       const map = mapRef.current;
       if (!map || mapState !== 'ready') return;
 
       if (answerMarkerRef.current) answerMarkerRef.current.map = null;
       if (circleRef.current) circleRef.current.map = null;
+      lineRef.current?.setMap(null);
+      flightOverlayRef.current?.setMap(null);
       answerMarkerRef.current = null;
       circleRef.current = null;
+      lineRef.current = null;
+      flightOverlayRef.current = null;
+      setFlight(null);
 
-      if (!correctAnswer) {
-        map.panTo({ lat: 22, lng: 15 });
-        map.setZoom(2);
-        return;
+      if (!correctAnswer) return;
+      try {
+        const google = await loadGoogleMaps(apiKey);
+        const marker = await createMarker(google, map, correctAnswer, 'Correct answer', 'answer');
+        if (cancelled) { marker.map = null; return; }
+        answerMarkerRef.current = marker;
+        const circle = await createAnswerCircle(google, map, correctAnswer);
+        if (cancelled) { circle.map = null; return; }
+        circleRef.current = circle;
+        if (!value) { finish(); return; }
+
+        let flightQueued = false;
+        const startFlight = () => {
+          idleListener?.remove();
+          idleListener = null;
+          if (cancelled || finished || flightQueued) return;
+          void projectRevealPoints(google, map, value, correctAnswer, (start, end) => {
+            if (cancelled || finished || flightQueued) return;
+            const viewport = elementRef.current;
+            const outsideViewport = !viewport || [start, end].some((point) =>
+              point.x < 0 || point.y < 0 || point.x > viewport.clientWidth || point.y > viewport.clientHeight
+            );
+            flightQueued = true;
+            setFlight(outsideViewport ? { kind: 'route' } : { kind: 'map', start, end });
+            dragListener = map.addListener('dragstart', finish);
+            zoomListenerTimer = window.setTimeout(() => {
+              if (!cancelled && !finished) zoomListener = map.addListener('zoom_changed', finish);
+            }, 100);
+          }).then((overlay) => {
+            if (cancelled || finished) overlay.setMap(null);
+            else flightOverlayRef.current = overlay;
+          }).catch((error) => {
+            console.warn('Guess Where flight overlay failed:', error);
+            finish();
+          });
+        };
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          idleListener = map.addListener('idle', startFlight);
+          flightStartTimer = window.setTimeout(startFlight, 350);
+        }
+        lineRef.current = await createAnswerConnection(google, map, correctAnswer, value);
+        if (cancelled) { lineRef.current?.setMap(null); return; }
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) finish();
+      } catch (error) {
+        console.warn('Guess Where answer reveal failed:', error);
+        finish();
       }
-      const google = await loadGoogleMaps(apiKey);
-
-      answerMarkerRef.current = await createMarker(google, map, correctAnswer, 'Correct answer');
-      circleRef.current = await createAnswerCircle(google, map, correctAnswer);
-      map.fitBounds(circleRef.current.getBounds(), 70);
     };
 
     void showAnswer();
-  }, [correctAnswer, mapState]);
+    return () => {
+      cancelled = true;
+      idleListener?.remove();
+      dragListener?.remove();
+      zoomListener?.remove();
+      if (flightStartTimer !== null) window.clearTimeout(flightStartTimer);
+      if (zoomListenerTimer !== null) window.clearTimeout(zoomListenerTimer);
+      flightOverlayRef.current?.setMap(null);
+      flightOverlayRef.current = null;
+      lineRef.current?.setMap(null);
+      lineRef.current = null;
+    };
+  }, [correctAnswer, mapState, value]);
 
   const search = async () => {
     const trimmed = query.trim();
@@ -223,7 +313,56 @@ export function GoogleMapPicker({
       {(searchError || interpretationNote) && (
         <p className="map-picker__message">{searchError || interpretationNote}</p>
       )}
-      <div className="map-picker__canvas" ref={elementRef} />
+      <div className="map-picker__map-shell">
+        <div className="map-picker__canvas" ref={elementRef} />
+        {correctAnswer && value && mapState === 'ready' && (
+          <button
+            className="map-picker__view-both"
+            onClick={() => {
+              const map = mapRef.current;
+              if (!map) return;
+              void loadGoogleMaps(apiKey).then((google) => {
+                finishRevealRef.current();
+                showBothPins(google, map, correctAnswer, value, circleRef.current?.getBounds() ?? null);
+              });
+            }}
+            type="button"
+          >
+            Check correct pin
+          </button>
+        )}
+        {flight?.kind === 'map' && (
+          <div
+            aria-hidden="true"
+            className="map-picker__witch-flight"
+            onAnimationEnd={() => finishRevealRef.current()}
+            style={{
+              left: flight.start.x,
+              top: flight.start.y,
+              '--flight-x': `${flight.end.x - flight.start.x}px`,
+              '--flight-y': `${flight.end.y - flight.start.y}px`,
+            } as CSSProperties}
+          >
+            <WitchMotif />
+          </div>
+        )}
+        {flight?.kind === 'route' && (
+          <div aria-hidden="true" className="map-picker__flight-route">
+            <span className="map-picker__flight-route-stop">
+              <i className="round-reveal__pin round-reveal__pin--guess" />
+              Your Pin
+            </span>
+            <span className="map-picker__flight-route-trail" />
+            <span className="map-picker__flight-route-witch" onAnimationEnd={() => finishRevealRef.current()}>
+              <WitchMotif />
+            </span>
+            <span className="map-picker__flight-route-stop">
+              <i className="round-reveal__pin round-reveal__pin--answer" />
+              Correct answer
+            </span>
+          </div>
+        )}
+      </div>
 
       {mapState === 'loading' && apiKey && (
         <div className="map-picker__overlay">Loading the map…</div>

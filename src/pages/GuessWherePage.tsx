@@ -45,6 +45,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
   const [round, setRound] = useState<PublicRound | null>(null);
   const [point, setPoint] = useState<GuessPoint | null>(null);
   const [result, setResult] = useState<AnswerResult | null>(null);
+  const [revealComplete, setRevealComplete] = useState(false);
   const [targetChallenge, setTargetChallenge] = useState<ChallengeSummary | null>(null);
   const [sharedChallenge, setSharedChallenge] = useState<ChallengeSummary | null>(null);
   const [photoView, setPhotoView] = useState(() => createViewerState());
@@ -83,6 +84,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
       setRound(await startGame(mode));
       setPoint(null);
       setResult(null);
+      setRevealComplete(false);
       setTotalScore(0);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The game could not be started.');
@@ -101,6 +103,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
       setRound(started.round);
       setPoint(null);
       setResult(null);
+      setRevealComplete(false);
       setTotalScore(0);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The challenge could not be started.');
@@ -116,6 +119,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     try {
       const answer = await submitAnswer(round.sessionId, round.round, point);
       setResult(answer);
+      setRevealComplete(false);
       setTotalScore(answer.totalScore);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The answer could not be submitted.');
@@ -129,6 +133,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     setRound(result.nextRound);
     setPoint(null);
     setResult(null);
+    setRevealComplete(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -137,6 +142,12 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     setIsPhotoDragging(false);
     photoPanGesture.current = null;
   }, [round?.sessionId, round?.round]);
+
+  useEffect(() => {
+    if (!result) return;
+    const fallback = window.setTimeout(() => setRevealComplete(true), 1800);
+    return () => window.clearTimeout(fallback);
+  }, [result]);
 
   const photoPanBounds = (zoom: number) => {
     const viewport = photoViewportRef.current;
@@ -323,14 +334,8 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
         <div className="guess-map-stage__heading">
           <div>
             <p className="page-kicker">Your answer</p>
-            <h1>{result ? friendlyProximity(result.proximity) : 'Where was this photograph taken?'}</h1>
+            <h1>{result ? 'The answer, revealed' : 'Where was this photograph taken?'}</h1>
           </div>
-          {result && (
-            <div className="round-score">
-              <strong>+{result.score.toLocaleString()}</strong>
-              <span>{result.distanceKm.toLocaleString()} km away</span>
-            </div>
-          )}
         </div>
 
         <GoogleMapPicker
@@ -338,8 +343,29 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
           disabled={Boolean(result)}
           key={`${round.sessionId}:${round.round}`}
           onChange={setPoint}
+          onRevealComplete={() => setRevealComplete(true)}
           value={point}
         />
+
+        {result && (
+          <div aria-live="polite" className={`round-reveal${revealComplete ? ' is-complete' : ''}`}>
+            <div className="round-reveal__places">
+              <span><i className="round-reveal__pin round-reveal__pin--answer" /> Correct answer</span>
+              <span><i className="round-reveal__pin round-reveal__pin--guess" /> Your Pin</span>
+            </div>
+            {revealComplete ? (
+              <div className="round-reveal__result">
+                <div>
+                  <strong>{friendlyProximity(result.proximity)}</strong>
+                  <span>{result.distanceKm.toLocaleString()} km away</span>
+                </div>
+                <b>+{result.score.toLocaleString()} <small>pts</small></b>
+              </div>
+            ) : (
+              <p>Following the trail between the two Pins…</p>
+            )}
+          </div>
+        )}
 
         <div className="guess-submit-row">
           {!result && (
@@ -351,14 +377,14 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
             </>
           )}
 
-          {result && !result.completed && (
+          {result && revealComplete && !result.completed && (
             <button className="guess-primary-action" onClick={continueGame} type="button">
               Next photograph
             </button>
           )}
         </div>
 
-        {result?.completed && (
+        {result?.completed && revealComplete && (
           <section className="game-finish">
             <p className="page-kicker">Five rounds complete</p>
             <h2>{result.totalScore.toLocaleString()} <span>/ 25,000</span></h2>

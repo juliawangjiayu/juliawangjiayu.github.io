@@ -4,7 +4,7 @@ type Listener = { remove(): void };
 type LatLngLike = { lat(): number; lng(): number };
 
 export type MapLike = {
-  addListener(eventName: 'click', handler: (event: { latLng?: LatLngLike | null }) => void): Listener;
+  addListener(eventName: string, handler: (event: { latLng?: LatLngLike | null }) => void): Listener;
   fitBounds(bounds: unknown, padding?: number): void;
   panTo(point: { lat: number; lng: number }): void;
   setZoom(zoom: number): void;
@@ -16,8 +16,24 @@ export type MarkerLike = {
 };
 
 export type CircleLike = {
-  getBounds(): unknown;
+  getBounds(): BoundsLike | null;
   map: MapLike | null;
+};
+
+export type BoundsLike = {
+  extend(point: { lat: number; lng: number }): BoundsLike;
+  union(bounds: BoundsLike): BoundsLike;
+};
+
+export type PolylineLike = { setMap(map: MapLike | null): void };
+export type OverlayLike = {
+  onAdd: () => void;
+  draw: () => void;
+  onRemove: () => void;
+  getProjection(): {
+    fromLatLngToContainerPixel(point: { lat: number; lng: number }): { x: number; y: number } | null;
+  };
+  setMap(map: MapLike | null): void;
 };
 
 type MapsLibrary = {
@@ -43,6 +59,15 @@ type MapsLibrary = {
     strokeOpacity: number;
     strokeWeight: number;
   }) => CircleLike;
+  Polyline: new (options: {
+    map: MapLike;
+    path: { lat: number; lng: number }[];
+    strokeColor: string;
+    strokeOpacity: number;
+    strokeWeight: number;
+    geodesic: boolean;
+  }) => PolylineLike;
+  OverlayView: new () => OverlayLike;
 };
 
 type MarkerLibrary = {
@@ -50,6 +75,7 @@ type MarkerLibrary = {
     map: MapLike;
     position: { lat: number; lng: number };
     title: string;
+    content?: HTMLElement;
   }) => MarkerLike;
 };
 
@@ -72,6 +98,7 @@ type PlacesLibrary = {
 
 type GoogleMapsApi = {
   maps: {
+    LatLngBounds: new () => BoundsLike;
     importLibrary(name: 'maps'): Promise<MapsLibrary>;
     importLibrary(name: 'marker'): Promise<MarkerLibrary>;
     importLibrary(name: 'places'): Promise<PlacesLibrary>;
@@ -185,13 +212,75 @@ export async function createMarker(
   map: MapLike,
   point: GuessPoint,
   title: string,
+  kind: 'guess' | 'answer' = 'guess',
 ): Promise<MarkerLike> {
   const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+  const content = document.createElement('div');
+  content.className = `guess-map-pin guess-map-pin--${kind}`;
+  content.setAttribute('aria-hidden', 'true');
   return new AdvancedMarkerElement({
     map,
     position: { lat: point.latitude, lng: point.longitude },
     title,
+    content,
   });
+}
+
+export async function createAnswerConnection(
+  google: GoogleMapsApi,
+  map: MapLike,
+  answer: GuessPoint & { radiusKm: number },
+  guess: GuessPoint,
+): Promise<PolylineLike> {
+  const { Polyline } = await google.maps.importLibrary('maps');
+  const path = [
+    { lat: answer.latitude, lng: answer.longitude },
+    { lat: guess.latitude, lng: guess.longitude },
+  ];
+  const line = new Polyline({
+    map,
+    path,
+    strokeColor: '#655477',
+    strokeOpacity: 0.85,
+    strokeWeight: 3,
+    geodesic: true,
+  });
+  return line;
+}
+
+export function showBothPins(
+  google: GoogleMapsApi,
+  map: MapLike,
+  answer: GuessPoint,
+  guess: GuessPoint,
+  answerBounds: BoundsLike | null,
+): void {
+  const bounds = new google.maps.LatLngBounds()
+    .extend({ lat: answer.latitude, lng: answer.longitude })
+    .extend({ lat: guess.latitude, lng: guess.longitude });
+  if (answerBounds) bounds.union(answerBounds);
+  map.fitBounds(bounds, 100);
+}
+
+export async function projectRevealPoints(
+  google: GoogleMapsApi,
+  map: MapLike,
+  startPoint: GuessPoint,
+  endPoint: GuessPoint,
+  onReady: (start: { x: number; y: number }, end: { x: number; y: number }) => void,
+): Promise<OverlayLike> {
+  const { OverlayView } = await google.maps.importLibrary('maps');
+  const overlay = new OverlayView();
+  overlay.onAdd = () => {};
+  overlay.draw = () => {
+    const projection = overlay.getProjection();
+    const start = projection.fromLatLngToContainerPixel({ lat: startPoint.latitude, lng: startPoint.longitude });
+    const end = projection.fromLatLngToContainerPixel({ lat: endPoint.latitude, lng: endPoint.longitude });
+    if (start && end) onReady(start, end);
+  };
+  overlay.onRemove = () => {};
+  overlay.setMap(map);
+  return overlay;
 }
 
 export async function createAnswerCircle(

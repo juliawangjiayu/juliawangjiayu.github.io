@@ -520,29 +520,6 @@ img {
   letter-spacing: -0.045em;
 }
 
-.round-score {
-  flex: 0 0 auto;
-  text-align: right;
-}
-
-.round-score strong,
-.round-score span {
-  display: block;
-}
-
-.round-score strong {
-  font-family: var(--serif);
-  font-size: clamp(38px, 4vw, 58px);
-  font-weight: 400;
-  line-height: 1;
-}
-
-.round-score span {
-  margin-top: 9px;
-  color: var(--ink-soft);
-  font-size: 14px;
-}
-
 .map-picker {
   position: relative;
   border: 1px solid var(--line-strong);
@@ -644,6 +621,199 @@ img {
   height: clamp(500px, 62vh, 720px);
   background: #d8d5ce;
 }
+
+.map-picker__map-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+.map-picker__view-both {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 4;
+  border: 1px solid #6c5b7c;
+  border-radius: 999px;
+  padding: 11px 18px;
+  background: #f8f4fb;
+  box-shadow: 0 4px 14px rgba(34, 27, 39, 0.2);
+  color: #382d45;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.map-picker__view-both:hover,
+.map-picker__view-both:focus-visible {
+  background: #eee7f0;
+}
+
+.guess-map-pin {
+  width: 26px;
+  height: 26px;
+  border: 3px solid #fffaf1;
+  box-shadow: 0 2px 10px rgba(24, 22, 26, 0.32);
+}
+
+.guess-map-pin--guess {
+  border-radius: 50% 50% 50% 0;
+  background: #655477;
+  transform: rotate(-45deg);
+}
+
+.guess-map-pin--guess::after {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fffaf1;
+  content: '';
+}
+
+.guess-map-pin--answer {
+  border-radius: 5px;
+  background: #c78f45;
+  transform: rotate(45deg);
+}
+
+.guess-map-pin--answer::after {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: #fffaf1;
+  content: '';
+}
+
+.map-picker__witch-flight {
+  position: absolute;
+  z-index: 3;
+  width: 72px;
+  pointer-events: none;
+  animation: guess-witch-flight 1400ms ease-in-out forwards;
+  filter: drop-shadow(0 4px 3px rgba(33, 25, 38, 0.28));
+}
+
+.map-picker__witch-flight svg {
+  display: block;
+  width: 100%;
+}
+
+@keyframes guess-witch-flight {
+  from { transform: translate(-50%, -75%) rotate(-6deg); }
+  to { transform: translate(calc(-50% + var(--flight-x)), calc(-75% + var(--flight-y))) rotate(4deg); }
+}
+
+.map-picker__flight-route {
+  position: absolute;
+  right: 20px;
+  bottom: 24px;
+  left: 20px;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 112px;
+  border: 1px solid #b7a6c4;
+  border-radius: 20px;
+  padding: 18px 24px;
+  background: rgba(248, 244, 251, 0.96);
+  box-shadow: 0 8px 28px rgba(34, 27, 39, 0.18);
+  color: #382d45;
+  pointer-events: none;
+}
+
+.map-picker__flight-route-stop {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.map-picker__flight-route-trail {
+  position: absolute;
+  top: 55px;
+  right: 17%;
+  left: 17%;
+  border-top: 2px dashed #a18aaf;
+}
+
+.map-picker__flight-route-witch {
+  position: absolute;
+  top: 6px;
+  left: 18%;
+  z-index: 2;
+  width: 72px;
+  animation: guess-witch-route-flight 1400ms ease-in-out forwards;
+  filter: drop-shadow(0 4px 3px rgba(33, 25, 38, 0.28));
+}
+
+.map-picker__flight-route-witch svg {
+  display: block;
+  width: 100%;
+}
+
+@keyframes guess-witch-route-flight {
+  from { left: 18%; transform: translateX(-50%) rotate(-6deg); }
+  to { left: 82%; transform: translateX(-50%) rotate(4deg); }
+}
+
+.round-reveal {
+  margin-top: 16px;
+  border: 1px solid #b7a6c4;
+  border-radius: 22px;
+  padding: clamp(20px, 3vw, 34px);
+  background: #eee7f0;
+  color: #302a38;
+}
+
+.round-reveal__places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 30px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.round-reveal__places span {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.round-reveal__pin {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(30, 22, 35, 0.3);
+}
+
+.round-reveal__pin--answer { background: #c78f45; transform: rotate(45deg); }
+.round-reveal__pin--guess { border-radius: 50%; background: #655477; }
+
+.round-reveal > p {
+  margin: 24px 0 0;
+  font-size: 17px;
+}
+
+.round-reveal__result {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 22px;
+}
+
+.round-reveal__result div { display: grid; gap: 6px; }
+.round-reveal__result strong { font-family: var(--serif); font-size: clamp(31px, 3.5vw, 50px); font-weight: 400; line-height: 1; }
+.round-reveal__result span { font-size: 17px; }
+.round-reveal__result b { font-family: var(--serif); font-size: clamp(42px, 5vw, 72px); font-weight: 400; line-height: 0.9; white-space: nowrap; }
+.round-reveal__result small { font-family: var(--sans); font-size: 18px; }
 
 .map-picker__message {
   position: absolute;
@@ -1613,8 +1783,9 @@ img {
     gap: 22px;
   }
 
-  .round-score {
-    text-align: left;
+  .round-reveal__result {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .map-picker__canvas {
