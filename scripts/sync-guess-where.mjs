@@ -31,7 +31,7 @@ if (!argument('--database', process.env.PHOTO_BOOTH_DB ?? '')) {
   const database = new DatabaseSync(databasePath, { readOnly: true });
   const rows = database
     .prepare(
-      `SELECT photo_id, latitude, longitude, difficulty, answer_radius_km, enabled
+      `SELECT photo_id, latitude, longitude, difficulty, answer_name, answer_radius_km, enabled
        FROM guess_where_entries
        WHERE confirmed = 1
        ORDER BY photo_id`,
@@ -45,6 +45,7 @@ if (!argument('--database', process.env.PHOTO_BOOTH_DB ?? '')) {
       photoId: row.photo_id,
       imageUrl: `/photos/${row.photo_id}.webp`,
       difficulty: row.difficulty,
+      answerName: row.answer_name.trim(),
       answerLatitude: row.latitude,
       answerLongitude: row.longitude,
       radiusKm: row.answer_radius_km,

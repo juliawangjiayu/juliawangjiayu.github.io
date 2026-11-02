@@ -1,0 +1,1 @@
+ALTER TABLE game_photos ADD COLUMN answer_name TEXT NOT NULL DEFAULT '';

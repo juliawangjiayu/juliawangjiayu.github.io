@@ -396,6 +396,8 @@ img {
 .challenge-invite button,
 .guess-submit-row button,
 .game-finish > button,
+.five-round-review__actions button,
+.game-invitation > button,
 .share-card button {
   min-height: 46px;
   border: 1px solid var(--ink);
@@ -901,6 +903,144 @@ img {
 .game-finish__comparison {
   margin: 28px 0;
   color: var(--ink-soft);
+}
+
+.five-round-review {
+  width: min(1040px, 100%);
+  margin: clamp(54px, 8vh, 86px) auto 0;
+  text-align: left;
+}
+
+.five-round-review__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.five-round-review__heading h3,
+.game-invitation h3 {
+  margin: 4px 0 0;
+  font-family: var(--serif);
+  font-size: clamp(34px, 4vw, 52px);
+  font-weight: 400;
+  line-height: 1.08;
+}
+
+.five-round-review__heading > span {
+  color: var(--ink-soft);
+  font-size: 15px;
+  letter-spacing: 0.1em;
+}
+
+.five-round-review__list {
+  margin: 0;
+  border-top: 1px solid var(--line-strong);
+  padding: 0;
+  list-style: none;
+}
+
+.five-round-review__row {
+  display: grid;
+  grid-template-columns: 164px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(20px, 3vw, 42px);
+  border-bottom: 1px solid var(--line-strong);
+  padding: 23px 8px;
+}
+
+.five-round-review__photo {
+  display: grid;
+  place-items: center;
+  width: 164px;
+  height: 124px;
+  background: #d8d1de;
+}
+
+.five-round-review__photo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.five-round-review__places > span {
+  color: #756684;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.five-round-review__places p {
+  display: grid;
+  gap: 1px;
+  margin: 11px 0 0;
+}
+
+.five-round-review__places small,
+.five-round-review__places em {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-style: normal;
+}
+
+.five-round-review__places strong {
+  font-size: clamp(17px, 2vw, 22px);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.five-round-review__score {
+  min-width: 92px;
+  text-align: right;
+}
+
+.five-round-review__score strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: clamp(29px, 3vw, 43px);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.five-round-review__score span { color: var(--ink-soft); font-size: 13px; }
+
+.five-round-review__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-top: 22px;
+}
+
+.five-round-review__actions p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.five-round-review__actions button { flex: 0 0 auto; }
+.five-round-review__actions button:disabled { cursor: wait; opacity: 0.5; }
+
+.game-invitation {
+  width: min(1040px, 100%);
+  margin: clamp(70px, 10vh, 112px) auto 0;
+  border-top: 1px solid var(--line-strong);
+  padding-top: 32px;
+  text-align: left;
+}
+
+.game-invitation > p:not(.page-kicker) {
+  margin: 15px 0 0;
+  color: var(--ink-soft);
+}
+
+.game-invitation > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 30px;
 }
 
 .game-finish > button {
@@ -1784,6 +1924,27 @@ img {
   }
 
   .round-reveal__result {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .five-round-review__row {
+    grid-template-columns: 105px minmax(0, 1fr);
+    align-items: start;
+    gap: 15px 20px;
+  }
+
+  .five-round-review__photo {
+    width: 105px;
+    height: 105px;
+  }
+
+  .five-round-review__score {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .five-round-review__actions {
     align-items: flex-start;
     flex-direction: column;
   }

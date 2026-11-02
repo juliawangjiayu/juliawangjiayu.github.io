@@ -12,6 +12,7 @@ function makePhotos(count = 5): GamePhotoRecord[] {
     photoId: `photo-${index + 1}`,
     imageUrl: `/photos/photo-${index + 1}.webp`,
     difficulty: "easy",
+    answerName: `Answer place ${index + 1}`,
     answerLatitude: 22.293 + index,
     answerLongitude: 114.17 + index,
     radiusKm: 10,
@@ -55,6 +56,7 @@ test("private game-photo sync requires the configured admin token", async () => 
   assert.equal(accepted.status, 200);
   assert.deepEqual(await accepted.json(), { schemaVersion: 1, photoCount: 5 });
   assert.equal((await repository.listEnabledGamePhotos()).length, 5);
+  assert.equal((await repository.listEnabledGamePhotos())[0]?.answerName, "Answer place 1");
 });
 
 test("Photo Booth can publish an idempotent encrypted AI place configuration", async () => {
@@ -148,6 +150,7 @@ test("a submitted round is scored once and only then reveals its answer", async 
 
   assert.equal(answerResponse.status, 200);
   assert.equal(answer.score, 5000);
+  assert.equal(answer.answerName, privatePhoto.answerName);
   assert.deepEqual(answer.correctAnswer, {
     latitude: privatePhoto.answerLatitude,
     longitude: privatePhoto.answerLongitude,

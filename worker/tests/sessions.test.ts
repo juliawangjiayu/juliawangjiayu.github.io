@@ -12,6 +12,7 @@ function makePhoto(id: string, difficulty: GamePhotoRecord["difficulty"]): GameP
     photoId: id,
     imageUrl: `/photos/${id}.webp`,
     difficulty,
+    answerName: "Private answer place",
     answerLatitude: 0,
     answerLongitude: 0,
     radiusKm: 10,

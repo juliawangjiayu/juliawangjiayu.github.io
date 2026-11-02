@@ -30,7 +30,7 @@ PHOTO_SITE_ADMIN_TOKEN="the-same-token-as-.dev.vars" \
 npm run sync:game -- --endpoint http://127.0.0.1:8787
 ```
 
-Use `--dry-run` to report mode counts without sending records. The sync script logs only counts; coordinates remain in Photo Booth, the authenticated request, and D1.
+Use `--dry-run` to report mode counts without sending records. The sync script logs only counts; answer coordinates and Photo Booth's confirmed place names remain in Photo Booth, the authenticated request, and D1. Place names are returned to a player only after that round is submitted, for the five-round review.
 
 ### Local AI configuration
 

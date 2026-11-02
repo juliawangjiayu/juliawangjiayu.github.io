@@ -8,6 +8,7 @@ test("public round data contains no answer coordinates or scoring radius", () =>
     photoId: "photo-1",
     imageUrl: "/photos/photo-1.webp",
     difficulty: "medium",
+    answerName: "Private answer place",
     answerLatitude: 22.293,
     answerLongitude: 114.17,
     radiusKm: 1,

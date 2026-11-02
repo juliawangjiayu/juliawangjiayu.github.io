@@ -30,6 +30,7 @@ const privateGamePhotoSchema = z.object({
   photoId: z.string().min(1).max(128),
   imageUrl: z.string().min(1).max(500),
   difficulty: z.enum(["easy", "medium", "hard"]),
+  answerName: z.string().trim().min(1).max(200),
   answerLatitude: z.number().min(-90).max(90),
   answerLongitude: z.number().min(-180).max(180),
   radiusKm: z.union([z.literal(1), z.literal(10), z.literal(50), z.literal(100)]),
@@ -369,6 +370,7 @@ export function createGameApp(repository: GameRepository, options: GameAppOption
         proximity: result.proximity,
         totalScore,
         completed,
+        answerName: photo.answerName,
         correctAnswer: {
           latitude: photo.answerLatitude,
           longitude: photo.answerLongitude,

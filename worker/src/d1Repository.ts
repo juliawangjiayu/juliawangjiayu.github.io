@@ -23,6 +23,7 @@ interface PhotoRow {
   photo_id: string;
   image_url: string;
   difficulty: Difficulty;
+  answer_name: string;
   answer_latitude: number;
   answer_longitude: number;
   radius_km: 1 | 10 | 50 | 100;
@@ -76,6 +77,7 @@ function mapPhoto(row: PhotoRow): GamePhotoRecord {
     photoId: row.photo_id,
     imageUrl: row.image_url,
     difficulty: row.difficulty,
+    answerName: row.answer_name,
     answerLatitude: row.answer_latitude,
     answerLongitude: row.answer_longitude,
     radiusKm: row.radius_km,
@@ -137,6 +139,7 @@ const PHOTO_COLUMNS = `
   photo_id,
   image_url,
   difficulty,
+  answer_name,
   answer_latitude,
   answer_longitude,
   radius_km,
@@ -274,12 +277,13 @@ export class D1GameRepository implements GameRepository {
         this.database
           .prepare(
             `INSERT INTO game_photos (
-               photo_id, image_url, difficulty, answer_latitude, answer_longitude,
-               radius_km, enabled, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               photo_id, image_url, difficulty, answer_name, answer_latitude,
+               answer_longitude, radius_km, enabled, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(photo_id) DO UPDATE SET
                image_url = excluded.image_url,
                difficulty = excluded.difficulty,
+               answer_name = excluded.answer_name,
                answer_latitude = excluded.answer_latitude,
                answer_longitude = excluded.answer_longitude,
                radius_km = excluded.radius_km,
@@ -290,6 +294,7 @@ export class D1GameRepository implements GameRepository {
             photo.photoId,
             photo.imageUrl,
             photo.difficulty,
+            photo.answerName,
             photo.answerLatitude,
             photo.answerLongitude,
             photo.radiusKm,

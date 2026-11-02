@@ -23,6 +23,7 @@ export type AnswerResult = {
   proximity: 'exact' | 'close' | 'near' | 'far' | 'miss';
   totalScore: number;
   completed: boolean;
+  answerName: string;
   correctAnswer: GuessPoint & { radiusKm: 1 | 10 | 50 | 100 };
   nextRound: PublicRound | null;
 };

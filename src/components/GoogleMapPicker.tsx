@@ -28,7 +28,7 @@ type RevealFlight =
 
 type GoogleMapPickerProps = {
   value: GuessPoint | null;
-  onChange: (point: GuessPoint) => void;
+  onChange: (point: GuessPoint, placeName?: string) => void;
   correctAnswer?: CorrectAnswer | null;
   disabled?: boolean;
   onRevealComplete?: () => void;
@@ -261,7 +261,7 @@ export function GoogleMapPicker({
   };
 
   const chooseCandidate = (candidate: PlaceCandidate) => {
-    onChange(candidate.point);
+    onChange(candidate.point, candidate.name);
     setCandidates([]);
     setQuery(candidate.name);
     mapRef.current?.panTo({ lat: candidate.point.latitude, lng: candidate.point.longitude });

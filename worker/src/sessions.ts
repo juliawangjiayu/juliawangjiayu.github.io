@@ -6,6 +6,7 @@ export interface GamePhotoRecord {
   photoId: string;
   imageUrl: string;
   difficulty: Difficulty;
+  answerName: string;
   answerLatitude: number;
   answerLongitude: number;
   radiusKm: AnswerRadiusKm;

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Copy, Minus, Plus, Share2 } from 'lucide-react';
 
 import { GoogleMapPicker } from '../components/GoogleMapPicker.tsx';
+import { FiveRoundReview } from '../components/FiveRoundReview.tsx';
 import { FlightTrail, WitchMotif } from '../components/SectionMotifs.tsx';
 import {
   createChallenge,
@@ -21,6 +22,8 @@ import {
   setViewerPan,
   setViewerZoomWithinBounds,
 } from '../lib/viewerState.ts';
+import { buildReviewCardData, downloadReviewCard } from '../lib/reviewCard.ts';
+import { appendRoundReview, makeRoundReview, type RoundReview } from '../lib/roundReview.ts';
 
 const modes: Array<{ id: GameMode; name: string; note: string }> = [
   { id: 'easy', name: 'Easy', note: 'Closer landmarks and wider contexts' },
@@ -44,7 +47,9 @@ function friendlyProximity(proximity: AnswerResult['proximity']): string {
 export function GuessWherePage({ challengeId }: GuessWherePageProps) {
   const [round, setRound] = useState<PublicRound | null>(null);
   const [point, setPoint] = useState<GuessPoint | null>(null);
+  const [selectedPlaceName, setSelectedPlaceName] = useState('');
   const [result, setResult] = useState<AnswerResult | null>(null);
+  const [reviews, setReviews] = useState<RoundReview[]>([]);
   const [revealComplete, setRevealComplete] = useState(false);
   const [targetChallenge, setTargetChallenge] = useState<ChallengeSummary | null>(null);
   const [sharedChallenge, setSharedChallenge] = useState<ChallengeSummary | null>(null);
@@ -59,6 +64,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
   } | null>(null);
   const [totalScore, setTotalScore] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [savingReview, setSavingReview] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [qrCode, setQrCode] = useState('');
@@ -83,7 +89,9 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     try {
       setRound(await startGame(mode));
       setPoint(null);
+      setSelectedPlaceName('');
       setResult(null);
+      setReviews([]);
       setRevealComplete(false);
       setTotalScore(0);
     } catch (caught) {
@@ -102,7 +110,9 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
       setTargetChallenge(started.challenge);
       setRound(started.round);
       setPoint(null);
+      setSelectedPlaceName('');
       setResult(null);
+      setReviews([]);
       setRevealComplete(false);
       setTotalScore(0);
     } catch (caught) {
@@ -118,6 +128,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     setError('');
     try {
       const answer = await submitAnswer(round.sessionId, round.round, point);
+      setReviews((current) => appendRoundReview(current, makeRoundReview(round, point, answer, selectedPlaceName)));
       setResult(answer);
       setRevealComplete(false);
       setTotalScore(answer.totalScore);
@@ -132,6 +143,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     if (!result?.nextRound) return;
     setRound(result.nextRound);
     setPoint(null);
+    setSelectedPlaceName('');
     setResult(null);
     setRevealComplete(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -187,6 +199,18 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
       setError(caught instanceof Error ? caught.message : 'The challenge link could not be created.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveReview = async () => {
+    setSavingReview(true);
+    setError('');
+    try {
+      await downloadReviewCard(buildReviewCardData(reviews, totalScore));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The review image could not be saved.');
+    } finally {
+      setSavingReview(false);
     }
   };
 
@@ -342,7 +366,10 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
           correctAnswer={result?.correctAnswer}
           disabled={Boolean(result)}
           key={`${round.sessionId}:${round.round}`}
-          onChange={setPoint}
+          onChange={(nextPoint, placeName) => {
+            setPoint(nextPoint);
+            setSelectedPlaceName(placeName ?? '');
+          }}
           onRevealComplete={() => setRevealComplete(true)}
           value={point}
         />
@@ -393,11 +420,16 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
                 Shared score: {targetChallenge.score.toLocaleString()}
               </p>
             )}
-            {!sharedChallenge ? (
+            <FiveRoundReview onSave={() => void saveReview()} reviews={reviews} saving={savingReview} />
+            <div className="game-invitation">
+              <p className="page-kicker">Share the same five</p>
+              <h3>Invite someone to play</h3>
+              <p>The invitation keeps the answers hidden until each photograph is played.</p>
+              {!sharedChallenge ? (
               <button disabled={busy} onClick={() => void share()} type="button">
                 <Share2 size={19} /> {busy ? 'Creating…' : 'Create a same-five challenge'}
               </button>
-            ) : (
+              ) : (
               <div className="share-card">
                 <p>Guess Where · Same five photographs</p>
                 <strong>{sharedChallenge.score.toLocaleString()} / 25,000</strong>
@@ -412,7 +444,8 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
                   <Copy size={18} /> {copied ? 'Copied' : 'Copy link'}
                 </button>
               </div>
-            )}
+              )}
+            </div>
           </section>
         )}
 
