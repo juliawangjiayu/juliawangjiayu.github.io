@@ -42,7 +42,7 @@ const modes: Array<{ id: GameMode; name: string; note: string }> = [
   { id: 'easy', name: 'Easy', note: 'Closer landmarks and wider contexts' },
   { id: 'medium', name: 'Medium', note: 'A balanced set of five places' },
   { id: 'hard', name: 'Hard', note: 'Small clues and unfamiliar viewpoints' },
-  { id: 'random', name: 'Random', note: 'Explore the full archive in batches, without repeats on this device' },
+  { id: 'random', name: 'Random', note: 'Explore the archive in batches, without repeats on this browser' },
 ];
 
 type GuessWherePageProps = {
@@ -412,20 +412,26 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
             </button>
           </section>
         ) : (
-          <div className="guess-modes" aria-label="Game modes">
-            {modes.map((mode) => (
-              <button
-                className="guess-mode"
-                disabled={busy || Boolean(challengeId) || (mode.id === 'random' && Boolean(randomRun?.complete))}
-                key={mode.id}
-                onClick={() => void beginMode(mode.id)}
-                type="button"
-              >
-                <span>{mode.name}</span>
-                <small>{mode.id === 'random' && randomRun ? randomJourneyCopy(randomRun) : mode.note}</small>
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="guess-modes" aria-label="Game modes">
+              {modes.map((mode) => (
+                <button
+                  className="guess-mode"
+                  disabled={busy || Boolean(challengeId) || (mode.id === 'random' && Boolean(randomRun?.complete))}
+                  key={mode.id}
+                  onClick={() => void beginMode(mode.id)}
+                  type="button"
+                >
+                  <span>{mode.name}</span>
+                  <small>{mode.id === 'random' && randomRun ? randomJourneyCopy(randomRun) : mode.note}</small>
+                </button>
+              ))}
+            </div>
+            <aside aria-label="How Random works" className="guess-intro__random-rules">
+              <p><strong>No repeats here</strong><span>Play anonymously. This browser remembers answered photos, so your next batch brings new ones. Other browsers or cleared browser data may repeat photos.</span></p>
+              <p><strong>One cumulative leaderboard</strong><span>Finish the whole archive, then sign in to save your total score. Individual batches do not rank.</span></p>
+            </aside>
+          </>
         )}
         {busy && !targetChallenge && <p className="guess-intro__status">Connecting to the game…</p>}
         {randomRun?.complete && <p className="guess-intro__status">You explored all {randomRun.total} Random places. Your cumulative score is {randomRun.cumulativeScore.toLocaleString()} points.</p>}
@@ -448,6 +454,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
         </span>
         <strong>{totalScore.toLocaleString()} pts</strong>
       </header>
+      {playedMode === 'random' && <p className="guess-game__random-rule">Random remembers answered photos on this browser · Only your full journey can enter the leaderboard</p>}
 
       <section className="guess-photo-stage">
         <div
@@ -581,8 +588,9 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
               <div className="random-journey-progress">
                 <p className="page-kicker">Random journey</p>
                 <strong>{randomProgressBusy ? 'Updating your journey…' : randomJourneyCopy(randomRun)}</strong>
+                {!randomJourneyFinished(randomRun) && <p>Answered photos will not appear again in this browser. Only your final total can join the Random leaderboard.</p>}
                 {!randomProgressBusy && !randomJourneyFinished(randomRun) && <button onClick={() => void beginMode('random')} type="button">Continue Random journey →</button>}
-                {randomJourneyCanRank(randomRun) && <p>All places explored. You can now save your cumulative score to the Random leaderboard.</p>}
+                {randomJourneyCanRank(randomRun) && <p>All places explored. Sign in when you save your cumulative score to the Random leaderboard.</p>}
                 {!randomRun.rankable && <p>The photo archive changed since this journey began. This score cannot join the current leaderboard. <button onClick={() => void beginFreshRandom()} type="button">Start a new Random journey</button></p>}
               </div>
             )}
@@ -629,9 +637,9 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
                 <p className="page-kicker">Your best journey</p>
                 <h3>{playedMode[0].toUpperCase() + playedMode.slice(1)} leaderboard</h3>
                 <p>{playedMode === 'random'
-                  ? 'Random 只按完成全部照片后的累计总分排行；每组照片不会单独上榜。'
+                  ? 'Only the full journey’s cumulative score enters the Random leaderboard. Individual batches do not rank; sign in when you save the total.'
                   : '每个模式只展示你的历史最高分；较低成绩不会覆盖最高分，但本次成绩仍可分享。'}</p>
-                {(playedMode !== 'random' || (randomRun && randomJourneyFinished(randomRun))) && (
+                {(playedMode !== 'random' || (randomRun && randomJourneyCanRank(randomRun))) && (
                   <button disabled={savingLeaderboard} onClick={() => void saveLeaderboard()} type="button">
                     {savingLeaderboard ? 'Saving score…' : 'Save to leaderboard'}
                   </button>

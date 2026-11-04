@@ -63,7 +63,7 @@ export function LeaderboardPage({ mode }: { mode: GameMode }) {
       <header className="leaderboard-page__heading">
         <p className="page-kicker">Four ways to play · One world</p>
         <h1>Leaderboard <WitchMotif className="leaderboard-page__witch" /></h1>
-        <p>{mode === 'random' ? 'Complete the full Random archive to rank by cumulative score. Each visitor appears once for the current photo set.' : 'Each name appears once per mode, with their best score.'}</p>
+        <p>{mode === 'random' ? 'Random remembers answered photos on this browser. Finish the whole archive, then sign in to save your cumulative score; individual batches do not rank.' : 'Each name appears once per mode, with their best score.'}</p>
         <AppLink href="/guess-where">← Back to Guess Where</AppLink>
       </header>
       <nav aria-label="Leaderboard mode" className="leaderboard-page__modes">
