@@ -23,7 +23,9 @@ import {
   setViewerZoomWithinBounds,
 } from '../lib/viewerState.ts';
 import { buildReviewCardData, downloadReviewCard } from '../lib/reviewCard.ts';
-import { appendRoundReview, makeRoundReview, type RoundReview } from '../lib/roundReview.ts';
+import { buildInvitationCardData, downloadInvitationCard } from '../lib/invitationCard.ts';
+import { appendRoundReview, makeRoundReview, resolveRoundReview, type RoundReview } from '../lib/roundReview.ts';
+import { reverseGeocodePlace } from '../lib/googleMaps.ts';
 
 const modes: Array<{ id: GameMode; name: string; note: string }> = [
   { id: 'easy', name: 'Easy', note: 'Closer landmarks and wider contexts' },
@@ -65,6 +67,11 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
   const [totalScore, setTotalScore] = useState(0);
   const [busy, setBusy] = useState(false);
   const [savingReview, setSavingReview] = useState(false);
+  const [savingInvitation, setSavingInvitation] = useState(false);
+  const [creatingInvitation, setCreatingInvitation] = useState(false);
+  const [invitationError, setInvitationError] = useState('');
+  const invitationRequestRef = useRef('');
+  const activeSessionRef = useRef('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [qrCode, setQrCode] = useState('');
@@ -87,13 +94,19 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     setBusy(true);
     setError('');
     try {
-      setRound(await startGame(mode));
+      const started = await startGame(mode);
+      activeSessionRef.current = started.sessionId;
+      setRound(started);
       setPoint(null);
       setSelectedPlaceName('');
       setResult(null);
       setReviews([]);
       setRevealComplete(false);
       setTotalScore(0);
+      setSharedChallenge(null);
+      setInvitationError('');
+      invitationRequestRef.current = '';
+      setCopied(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The game could not be started.');
     } finally {
@@ -107,6 +120,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     setError('');
     try {
       const started = await startChallenge(challengeId);
+      activeSessionRef.current = started.round.sessionId;
       setTargetChallenge(started.challenge);
       setRound(started.round);
       setPoint(null);
@@ -115,6 +129,10 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
       setReviews([]);
       setRevealComplete(false);
       setTotalScore(0);
+      setSharedChallenge(null);
+      setInvitationError('');
+      invitationRequestRef.current = '';
+      setCopied(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The challenge could not be started.');
     } finally {
@@ -132,6 +150,17 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
       setResult(answer);
       setRevealComplete(false);
       setTotalScore(answer.totalScore);
+      const sessionId = round.sessionId;
+      const roundNumber = round.round;
+      const browserKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() ?? '';
+      void Promise.race([
+        reverseGeocodePlace(browserKey, point).catch(() => null),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 5000)),
+      ]).then((place) => {
+        if (activeSessionRef.current !== sessionId) return;
+        setReviews((current) => current.map((review) =>
+          review.round === roundNumber ? resolveRoundReview(review, place) : review));
+      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The answer could not be submitted.');
     } finally {
@@ -189,18 +218,26 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     setIsPhotoDragging(false);
   };
 
-  const share = async () => {
-    if (!round || !result?.completed) return;
-    setBusy(true);
-    setError('');
+  const createInvitation = async (sessionId: string) => {
+    if (invitationRequestRef.current === sessionId) return;
+    invitationRequestRef.current = sessionId;
+    setCreatingInvitation(true);
+    setInvitationError('');
     try {
-      setSharedChallenge(await createChallenge(round.sessionId));
+      setSharedChallenge(await createChallenge(sessionId));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The challenge link could not be created.');
+      invitationRequestRef.current = '';
+      setInvitationError(caught instanceof Error ? caught.message : 'The invitation could not be created.');
     } finally {
-      setBusy(false);
+      setCreatingInvitation(false);
     }
   };
+
+  useEffect(() => {
+    if (result?.completed && revealComplete && round && !sharedChallenge && !invitationError) {
+      void createInvitation(round.sessionId);
+    }
+  }, [result?.completed, revealComplete, round?.sessionId, sharedChallenge, invitationError]);
 
   const saveReview = async () => {
     setSavingReview(true);
@@ -214,9 +251,23 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     }
   };
 
-  const challengeUrl = sharedChallenge
-    ? `${window.location.origin}/guess-where/challenge/${sharedChallenge.id}`
-    : '';
+  const invitationCard = sharedChallenge
+    ? buildInvitationCardData(sharedChallenge, window.location.origin)
+    : null;
+  const challengeUrl = invitationCard?.url ?? '';
+
+  const saveInvitation = async () => {
+    if (!invitationCard) return;
+    setSavingInvitation(true);
+    setInvitationError('');
+    try {
+      await downloadInvitationCard(invitationCard);
+    } catch (caught) {
+      setInvitationError(caught instanceof Error ? caught.message : 'The invitation image could not be saved.');
+    } finally {
+      setSavingInvitation(false);
+    }
+  };
 
   useEffect(() => {
     if (!challengeUrl) {
@@ -233,7 +284,9 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
       }).then((dataUrl) => {
         if (!cancelled) setQrCode(dataUrl);
       }),
-    );
+    ).catch(() => {
+      if (!cancelled) setInvitationError('The QR code could not be shown. You can still copy the link.');
+    });
 
     return () => {
       cancelled = true;
@@ -426,25 +479,38 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
               <h3>Invite someone to play</h3>
               <p>The invitation keeps the answers hidden until each photograph is played.</p>
               {!sharedChallenge ? (
-              <button disabled={busy} onClick={() => void share()} type="button">
-                <Share2 size={19} /> {busy ? 'Creating…' : 'Create a same-five challenge'}
-              </button>
+                <div className="game-invitation__status" role="status">
+                  {creatingInvitation ? <p>Preparing your invitation card…</p> : (
+                    <button onClick={() => round && void createInvitation(round.sessionId)} type="button">
+                      <Share2 size={19} /> Create invitation card
+                    </button>
+                  )}
+                </div>
               ) : (
               <div className="share-card">
-                <p>Guess Where · Same five photographs</p>
+                <p>Invitation card · Same five photographs</p>
                 <strong>{sharedChallenge.score.toLocaleString()} / 25,000</strong>
                 {qrCode && <img alt="QR code for the same-five challenge" src={qrCode} />}
                 <a href={challengeUrl}>{challengeUrl}</a>
-                <button
-                  onClick={() => {
-                    void navigator.clipboard.writeText(challengeUrl).then(() => setCopied(true));
-                  }}
-                  type="button"
-                >
-                  <Copy size={18} /> {copied ? 'Copied' : 'Copy link'}
-                </button>
+                <div className="share-card__actions">
+                  <button disabled={savingInvitation} onClick={() => void saveInvitation()} type="button">
+                    <Share2 size={18} /> {savingInvitation ? 'Saving…' : 'Save invitation image'}
+                  </button>
+                  <button
+                    className="share-card__copy"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(challengeUrl)
+                        .then(() => setCopied(true))
+                        .catch(() => setInvitationError('The link could not be copied. Select and copy it above.'));
+                    }}
+                    type="button"
+                  >
+                    <Copy size={18} /> {copied ? 'Copied' : 'Copy link'}
+                  </button>
+                </div>
               </div>
               )}
+              {invitationError && <p className="guess-error" role="alert">{invitationError}</p>}
             </div>
           </section>
         )}

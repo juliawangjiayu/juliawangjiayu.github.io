@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { appendRoundReview, makeRoundReview } from '../src/lib/roundReview.ts';
+import { appendRoundReview, makeRoundReview, resolveRoundReview } from '../src/lib/roundReview.ts';
 
 const round = {
   sessionId: 'session-1',
@@ -23,28 +23,31 @@ const answer = {
   nextRound: null,
 };
 
-test('five-round review uses a searched place and the post-submit answer name', () => {
+test('five-round review uses an administrative place and small coordinates after lookup', () => {
   const review = makeRoundReview(round, { latitude: 22.3, longitude: 114.2 }, answer, '香港岛');
 
-  assert.deepEqual(review, {
+  const resolved = resolveRoundReview(review, '香港岛，香港，中国');
+
+  assert.deepEqual(resolved, {
     round: 2,
     photoUrl: '/photos/photo-2.webp',
-    guessLabel: '香港岛',
-    guessPosition: '',
-    guessArea: '',
+    guessLabel: 'Near 香港岛，香港，中国',
+    guessPosition: '22.30° N, 114.20° E',
+    locationPending: false,
     answerLabel: '香港太平山顶',
     score: 2100,
     distanceKm: 123.4,
   });
-  assert.doesNotMatch(JSON.stringify(review), /session-1|radiusKm|correctAnswer/);
+  assert.doesNotMatch(JSON.stringify(resolved), /session-1|radiusKm|correctAnswer/);
 });
 
-test('five-round review shows a manual Pin position without inventing a place name', () => {
+test('five-round review falls back to coordinates without saying Map Pin when lookup fails', () => {
   const review = makeRoundReview(round, { latitude: -22.3456, longitude: 114.2345 }, { ...answer, answerName: '' }, '');
 
-  assert.equal(review.guessLabel, 'Map Pin');
+  assert.equal(review.locationPending, true);
+  assert.equal(resolveRoundReview(review, null).guessLabel, 'Near the selected location');
+  assert.equal(resolveRoundReview(review, null).locationPending, false);
   assert.equal(review.guessPosition, '22.35° S, 114.23° E');
-  assert.equal(review.guessArea, 'About 22° S, 114° E');
   assert.equal(review.answerLabel, 'Answer location');
 });
 

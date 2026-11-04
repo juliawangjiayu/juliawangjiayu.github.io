@@ -96,12 +96,23 @@ type PlacesLibrary = {
   };
 };
 
+type GeocodeResult = {
+  address_components: Array<{ long_name: string; types: string[] }>;
+};
+
+type GeocodingLibrary = {
+  Geocoder: new () => {
+    geocode(request: { location: { lat: number; lng: number } }): Promise<{ results: GeocodeResult[] }>;
+  };
+};
+
 type GoogleMapsApi = {
   maps: {
     LatLngBounds: new () => BoundsLike;
     importLibrary(name: 'maps'): Promise<MapsLibrary>;
     importLibrary(name: 'marker'): Promise<MarkerLibrary>;
     importLibrary(name: 'places'): Promise<PlacesLibrary>;
+    importLibrary(name: 'geocoding'): Promise<GeocodingLibrary>;
   };
 };
 
@@ -112,6 +123,33 @@ export type PlaceCandidate = {
   address: string;
   point: GuessPoint;
 };
+
+export function formatAdministrativePlace(results: GeocodeResult[]): string | null {
+  for (const result of results) {
+    const nameFor = (...types: string[]) => result.address_components
+      .find((component) => types.some((type) => component.types.includes(type)))
+      ?.long_name.trim() ?? '';
+    const cityOrCounty = nameFor('locality') || nameFor('administrative_area_level_3')
+      || nameFor('administrative_area_level_2') || nameFor('postal_town');
+    const region = nameFor('administrative_area_level_1');
+    const country = nameFor('country');
+    if (!cityOrCounty || !country) continue;
+
+    const parts = [...new Set([cityOrCounty, region, country].filter(Boolean))];
+    return parts.join(parts.some((part) => /[\u3400-\u9fff]/u.test(part)) ? '，' : ', ');
+  }
+  return null;
+}
+
+export async function reverseGeocodePlace(apiKey: string, point: GuessPoint): Promise<string | null> {
+  const google = await loadGoogleMaps(apiKey);
+  const { Geocoder } = await google.maps.importLibrary('geocoding');
+  const geocoder = new Geocoder();
+  const { results } = await geocoder.geocode({
+    location: { lat: point.latitude, lng: point.longitude },
+  });
+  return formatAdministrativePlace(results);
+}
 
 export class MissingGoogleMapsKeyError extends Error {
   constructor() {

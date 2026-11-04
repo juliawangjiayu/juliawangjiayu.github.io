@@ -6,8 +6,8 @@ export interface ScoreResult {
 }
 
 const EARTH_RADIUS_KM = 6371.0088;
-const SCORE_DECAY_KM = 1492.7;
-const ZERO_SCORE_DISTANCE_KM = 8000;
+const SCORE_DECAY_KM = 1100;
+const ZERO_SCORE_DISTANCE_KM = 6000;
 
 function toRadians(value: number): number {
   return (value * Math.PI) / 180;

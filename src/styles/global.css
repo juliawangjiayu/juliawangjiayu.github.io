@@ -397,7 +397,7 @@ img {
 .guess-submit-row button,
 .game-finish > button,
 .five-round-review__actions button,
-.game-invitation > button,
+.game-invitation__status button,
 .share-card button {
   min-height: 46px;
   border: 1px solid var(--ink);
@@ -908,6 +908,9 @@ img {
 .five-round-review {
   width: min(1040px, 100%);
   margin: clamp(54px, 8vh, 86px) auto 0;
+  border: 1px solid var(--line-strong);
+  padding: clamp(24px, 4vw, 48px);
+  background: var(--paper-raised);
   text-align: left;
 }
 
@@ -1036,11 +1039,19 @@ img {
   color: var(--ink-soft);
 }
 
-.game-invitation > button {
+.game-invitation__status {
+  margin-top: 30px;
+}
+
+.game-invitation__status p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.game-invitation__status button {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  margin-top: 30px;
 }
 
 .game-finish > button {
@@ -1087,17 +1098,31 @@ img {
 }
 
 .share-card > img {
-  width: 176px;
-  height: 176px;
+  width: 208px;
+  height: 208px;
   margin-top: 28px;
   image-rendering: pixelated;
 }
 
-.share-card button {
+.share-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.share-card__actions button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 26px;
+}
+
+.share-card__actions button:disabled { cursor: wait; opacity: 0.5; }
+
+.share-card__actions .share-card__copy {
+  background: transparent;
+  color: var(--ink);
 }
 
 .placeholder-page,
@@ -1948,6 +1973,13 @@ img {
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .share-card__actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .share-card__actions button { justify-content: center; }
 
   .map-picker__canvas {
     height: min(62vh, 560px);

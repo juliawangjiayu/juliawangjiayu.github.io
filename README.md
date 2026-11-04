@@ -11,7 +11,7 @@ npm install
 npm run dev -- --port 4173
 ```
 
-Google Cloud must enable **Maps JavaScript API** and **Places API (New)**. Restrict the browser key to those APIs and to the local and published site referrers.
+Google Cloud must enable **Maps JavaScript API**, **Places API (New)**, and **Geocoding API**. Allow the browser key to use all three APIs and restrict it to the local and published site referrers. Guess Where reverse-geocodes the submitted Pin once per round to show a city or county in the five-round review; if that lookup is unavailable, the review still shows the chosen coordinates.
 
 ## Local Guess Where Worker
 

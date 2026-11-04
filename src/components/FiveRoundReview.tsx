@@ -24,7 +24,7 @@ export function FiveRoundReview({ reviews, saving, onSave }: FiveRoundReviewProp
             </div>
             <div className="five-round-review__places">
               <span>Round {String(review.round).padStart(2, '0')}</span>
-              <p><small>Your guess</small><strong>{review.guessLabel}</strong>{review.guessPosition && <em>{review.guessPosition}</em>}</p>
+              <p><small>Your answer</small><strong>{review.locationPending ? 'Finding nearby city…' : review.guessLabel}</strong><em>{review.guessPosition}</em></p>
               <p><small>Correct answer</small><strong>{review.answerLabel}</strong></p>
             </div>
             <div className="five-round-review__score">
@@ -36,8 +36,8 @@ export function FiveRoundReview({ reviews, saving, onSave }: FiveRoundReviewProp
       </ol>
       <div className="five-round-review__actions">
         <p>Contains answers — share after friends play.</p>
-        <button disabled={saving || reviews.length !== 5} onClick={onSave} type="button">
-          {saving ? 'Saving…' : 'Save review image'}
+        <button disabled={saving || reviews.length !== 5 || reviews.some((review) => review.locationPending)} onClick={onSave} type="button">
+          {saving ? 'Saving…' : reviews.some((review) => review.locationPending) ? 'Finding place names…' : 'Save review image'}
         </button>
       </div>
     </section>

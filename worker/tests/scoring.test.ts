@@ -24,6 +24,17 @@ test("score falls smoothly with distance and eventually reaches zero", () => {
   });
 });
 
+test("medium and long misses lose more points while a nearby guess still scores", () => {
+  const nearby = scoreGuess(50, 10).score;
+  const regional = scoreGuess(500, 10).score;
+  const distant = scoreGuess(1500, 10).score;
+
+  assert.ok(nearby > 4700);
+  assert.ok(regional >= 3000 && regional <= 3300);
+  assert.ok(distant >= 1200 && distant <= 1400);
+  assert.deepEqual(scoreGuess(6000, 10), { score: 0, proximity: "miss" });
+});
+
 test("a wider authored radius never lowers the score", () => {
   assert.ok(scoreGuess(80, 100).score >= scoreGuess(80, 10).score);
 });

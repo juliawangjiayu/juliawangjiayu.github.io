@@ -1,6 +1,6 @@
 import type { RoundReview } from './roundReview.ts';
 
-type ReviewCardRow = Pick<RoundReview, 'round' | 'photoUrl' | 'guessLabel' | 'guessArea' | 'answerLabel' | 'score'>;
+type ReviewCardRow = Pick<RoundReview, 'round' | 'photoUrl' | 'guessLabel' | 'guessPosition' | 'answerLabel' | 'score'>;
 
 export type ReviewCardData = {
   totalScore: number;
@@ -11,10 +11,13 @@ export function buildReviewCardData(reviews: RoundReview[], totalScore: number):
   if (reviews.length !== 5 || reviews.some((review, index) => review.round !== index + 1)) {
     throw new Error('Finish all five rounds before saving the review.');
   }
+  if (reviews.some((review) => review.locationPending)) {
+    throw new Error('Wait for the nearby place lookup before saving the review.');
+  }
   return {
     totalScore,
-    rows: reviews.map(({ round, photoUrl, guessLabel, guessArea, answerLabel, score }) => ({
-      round, photoUrl, guessLabel, guessArea, answerLabel, score,
+    rows: reviews.map(({ round, photoUrl, guessLabel, guessPosition, answerLabel, score }) => ({
+      round, photoUrl, guessLabel, guessPosition, answerLabel, score,
     })),
   };
 }
@@ -76,13 +79,13 @@ export async function renderReviewCard(data: ReviewCardData): Promise<Blob> {
   const measureContext = context;
   const layouts = data.rows.map((row) => {
     const measure = (value: string) => measureContext.measureText(value).width;
-    const guessText = row.guessArea ? `${row.guessLabel} — ${row.guessArea}` : row.guessLabel;
-    const guessLines = wrapReviewText(guessText, 540, measure);
+    const guessLines = wrapReviewText(row.guessLabel, 540, measure);
     const answerLines = wrapReviewText(row.answerLabel, 540, measure);
-    const answerLabelY = Math.max(157, 108 + (guessLines.length - 1) * 30 + 49);
+    const guessPositionY = 108 + (guessLines.length - 1) * 30 + 32;
+    const answerLabelY = guessPositionY + 44;
     const answerTextY = answerLabelY + 31;
     const height = Math.max(222, answerTextY + (answerLines.length - 1) * 30 + 32);
-    return { guessLines, answerLines, answerLabelY, answerTextY, height };
+    return { guessLines, answerLines, guessPositionY, answerLabelY, answerTextY, height };
   });
   canvas.height = 310 + layouts.reduce((total, layout) => total + layout.height, 0) + (layouts.length - 1) * 14 + 98;
   context = canvas.getContext('2d');
@@ -114,11 +117,16 @@ export async function renderReviewCard(data: ReviewCardData): Promise<Blob> {
     context.fillText(`ROUND ${String(row.round).padStart(2, '0')}`, 326, top + 38);
     context.fillStyle = '#55495e';
     context.font = '19px Arial, sans-serif';
-    context.fillText('YOUR GUESS', 326, top + 78);
+    context.fillText('YOUR ANSWER', 326, top + 78);
     context.fillText('CORRECT ANSWER', 326, top + layout.answerLabelY);
     context.fillStyle = '#30283a';
     context.font = '26px Arial, sans-serif';
     drawLines(context, layout.guessLines, 326, top + 108);
+    context.fillStyle = '#655477';
+    context.font = '19px Arial, sans-serif';
+    context.fillText(row.guessPosition, 326, top + layout.guessPositionY);
+    context.fillStyle = '#30283a';
+    context.font = '26px Arial, sans-serif';
     drawLines(context, layout.answerLines, 326, top + layout.answerTextY);
     context.textAlign = 'right';
     context.font = '43px Georgia, serif';
