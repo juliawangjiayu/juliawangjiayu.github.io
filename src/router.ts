@@ -6,6 +6,7 @@ export type Route =
   | { name: 'collection'; id: string }
   | { name: 'guess-where' }
   | { name: 'guess-where-challenge'; id: string }
+  | { name: 'guess-where-leaderboard'; mode: 'easy' | 'medium' | 'hard' | 'random' }
   | { name: 'about' }
   | { name: 'not-found' };
 
@@ -20,6 +21,11 @@ export function matchRoute(pathname: string): Route {
   if (path === '/collections') return { name: 'collections' };
   if (path === '/guess-where') return { name: 'guess-where' };
   if (path === '/about') return { name: 'about' };
+
+  const leaderboardMatch = path.match(/^\/guess-where\/leaderboards\/(easy|medium|hard|random)$/);
+  if (leaderboardMatch) {
+    return { name: 'guess-where-leaderboard', mode: leaderboardMatch[1] as 'easy' | 'medium' | 'hard' | 'random' };
+  }
 
   const collectionMatch = path.match(/^\/collections\/([^/]+)$/);
   if (collectionMatch) {

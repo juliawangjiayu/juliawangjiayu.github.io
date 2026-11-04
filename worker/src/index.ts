@@ -7,6 +7,7 @@ interface Bindings {
   ADMIN_PUBLISH_TOKEN?: string;
   AI_CONFIG_ENCRYPTION_KEY?: string;
   DEEPSEEK_API_KEY?: string;
+  VISITOR_IDENTITY_PEPPER?: string;
 }
 
 export default {
@@ -20,6 +21,7 @@ export default {
       adminToken: environment.ADMIN_PUBLISH_TOKEN,
       aiEncryptionKey: environment.AI_CONFIG_ENCRYPTION_KEY,
       deepSeekApiKey: environment.DEEPSEEK_API_KEY,
+      visitorIdentityPepper: environment.VISITOR_IDENTITY_PEPPER,
     });
 
     return app.fetch(request);

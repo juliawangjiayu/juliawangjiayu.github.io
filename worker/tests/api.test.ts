@@ -186,7 +186,9 @@ test("an incomplete difficulty returns a useful conflict response", async () => 
 
 test("a shared challenge starts a new session with the exact same five photos", async () => {
   const repository = new MemoryGameRepository(makePhotos());
-  const app = createTestApp(repository);
+  const app = createTestApp(repository, { visitorIdentityPepper: "test-pepper" });
+  const identityResponse = await app.request("/api/identity/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "Alice", email: "alice@example.com" }) });
+  const { token } = await identityResponse.json();
   const startResponse = await app.request("/api/game/start", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -215,7 +217,7 @@ test("a shared challenge starts a new session with the exact same five photos", 
 
   const createResponse = await app.request("/api/challenges", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({ sessionId: started.sessionId }),
   });
   const challenge = await createResponse.json();

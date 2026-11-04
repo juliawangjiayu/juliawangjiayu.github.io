@@ -1,3 +1,4 @@
 ADMIN_PUBLISH_TOKEN=replace-with-a-long-random-local-token
 AI_CONFIG_ENCRYPTION_KEY=replace-with-another-long-random-secret
 DEEPSEEK_API_KEY=
+VISITOR_IDENTITY_PEPPER=replace-with-a-third-independent-long-random-secret

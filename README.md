@@ -22,6 +22,12 @@ npm run db:migrate:local
 npm run worker:dev
 ```
 
+Visitor identity and best-score leaderboards also require an independent `VISITOR_IDENTITY_PEPPER` in `.dev.vars`. This is a Worker-only secret used to make a keyed verifier from the email; it must never go in a `VITE_*` variable, the static export, or GitHub Actions browser settings. The Worker stores only that verifier, a public username, and hashes of random session tokens. Username plus email is intentionally a lightweight sign-in method without email verification; it should not be used for private content.
+
+The D1 migrations are forward-only. Apply local migrations before testing identity or ranking. For production, add the same secret in Cloudflare with `npx wrangler secret put VISITOR_IDENTITY_PEPPER`, apply the remote D1 migrations, deploy the Worker, and only then publish frontend code that uses the new API. The current `main` deployment workflow builds and publishes GitHub Pages automatically when pushed.
+
+Guess Where allows anonymous play and downloading the result review image. Visitors sign in only to save a score or create a persistent invitation. Easy, Medium, and Hard keep one public best five-round score per username. Random instead remembers a private journey for the current browser, serves each photo once across batches of up to five, and ranks only the cumulative score after the entire frozen journey is complete. With the current 39-photo pool this means seven five-photo batches and one four-photo batch. The last batch can also make a same-four invitation. Changing browsers may repeat questions, and clearing local browser storage loses the link to an unfinished journey. If the eligible photo set or an answer changes, the current Random leaderboard starts a new season; an older journey remains playable but must be restarted to enter the current leaderboard. Challenge replays do not join a leaderboard. New scoring applies to future answers; existing stored scores are not recalculated.
+
 To copy confirmed private game answers from Photo Booth into local D1 without writing them into the repository:
 
 ```sh

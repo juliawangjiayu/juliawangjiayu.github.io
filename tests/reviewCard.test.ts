@@ -35,6 +35,12 @@ test('review image refuses an incomplete five-round result', () => {
   assert.throws(() => buildReviewCardData(reviews.slice(0, 4), 1000), /five rounds/i);
 });
 
+test('review image accepts a completed four-photo final Random batch', () => {
+  const data = buildReviewCardData(reviews.slice(0, 4), 1000, 4);
+  assert.equal(data.rows.length, 4);
+  assert.equal(data.totalRounds, 4);
+});
+
 test('review image wraps long answer names without dropping characters', () => {
   const answer = 'Vietnam Veterans Memorial, Henry Bacon Drive Northwest, Ward 2, Washington, District of Columbia, United States';
   const lines = wrapReviewText(answer, 24, (value) => value.length);

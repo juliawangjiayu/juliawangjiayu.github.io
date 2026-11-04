@@ -6,7 +6,7 @@ import { appendRoundReview, makeRoundReview, resolveRoundReview } from '../src/l
 const round = {
   sessionId: 'session-1',
   round: 2,
-  totalRounds: 5,
+  totalRounds: 5 as const,
   photo: { id: 'photo-2', imageUrl: '/photos/photo-2.webp' },
 };
 

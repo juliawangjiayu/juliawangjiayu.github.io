@@ -3,17 +3,26 @@ import { Copy, Minus, Plus, Share2 } from 'lucide-react';
 
 import { GoogleMapPicker } from '../components/GoogleMapPicker.tsx';
 import { FiveRoundReview } from '../components/FiveRoundReview.tsx';
+import { LeaderboardTable } from '../components/LeaderboardTable.tsx';
+import { AppLink } from '../components/AppLink.tsx';
+import { useVisitorIdentity } from '../components/VisitorIdentityProvider.tsx';
 import { FlightTrail, WitchMotif } from '../components/SectionMotifs.tsx';
 import {
   createChallenge,
+  getRandomJourneyProgress,
   getChallenge,
+  startRandomJourney,
   startChallenge,
   startGame,
   submitAnswer,
+  saveLeaderboardBest,
+  saveRandomLeaderboard,
+  GameApiError,
   type AnswerResult,
   type ChallengeSummary,
   type GameMode,
   type GuessPoint,
+  type LeaderboardSaveResult,
   type PublicRound,
 } from '../lib/gameApi.ts';
 import {
@@ -26,12 +35,14 @@ import { buildReviewCardData, downloadReviewCard } from '../lib/reviewCard.ts';
 import { buildInvitationCardData, downloadInvitationCard } from '../lib/invitationCard.ts';
 import { appendRoundReview, makeRoundReview, resolveRoundReview, type RoundReview } from '../lib/roundReview.ts';
 import { reverseGeocodePlace } from '../lib/googleMaps.ts';
+import { leaderboardResultCopy } from '../lib/gameResultState.ts';
+import { clearRandomJourneyToken, loadRandomBatchReviews, loadRandomJourneyToken, randomJourneyCanRank, randomJourneyCopy, randomJourneyFinished, saveRandomBatchReviews, saveRandomJourneyToken, type RandomJourneyProgress } from '../lib/randomJourney.ts';
 
 const modes: Array<{ id: GameMode; name: string; note: string }> = [
   { id: 'easy', name: 'Easy', note: 'Closer landmarks and wider contexts' },
   { id: 'medium', name: 'Medium', note: 'A balanced set of five places' },
   { id: 'hard', name: 'Hard', note: 'Small clues and unfamiliar viewpoints' },
-  { id: 'random', name: 'Random', note: 'Five places from the full archive' },
+  { id: 'random', name: 'Random', note: 'Explore the full archive in batches, without repeats on this device' },
 ];
 
 type GuessWherePageProps = {
@@ -47,6 +58,14 @@ function friendlyProximity(proximity: AnswerResult['proximity']): string {
 }
 
 export function GuessWherePage({ challengeId }: GuessWherePageProps) {
+  const { visitor, runAuthenticated, signOut } = useVisitorIdentity();
+  const [playedMode, setPlayedMode] = useState<GameMode | null>(null);
+  const [randomRun, setRandomRun] = useState<RandomJourneyProgress | null>(null);
+  const [randomProgressBusy, setRandomProgressBusy] = useState(false);
+  const reconciledRandomSession = useRef('');
+  const [leaderboardResult, setLeaderboardResult] = useState<LeaderboardSaveResult | null>(null);
+  const [savingLeaderboard, setSavingLeaderboard] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState('');
   const [round, setRound] = useState<PublicRound | null>(null);
   const [point, setPoint] = useState<GuessPoint | null>(null);
   const [selectedPlaceName, setSelectedPlaceName] = useState('');
@@ -77,6 +96,18 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
   const [qrCode, setQrCode] = useState('');
 
   useEffect(() => {
+    if (challengeId) return;
+    const token = loadRandomJourneyToken();
+    if (token) void getRandomJourneyProgress(token).then(setRandomRun).catch((caught) => {
+      if (caught instanceof GameApiError && caught.status === 404) clearRandomJourneyToken();
+    });
+  }, [challengeId]);
+
+  useEffect(() => {
+    if (playedMode === 'random' && round) saveRandomBatchReviews(round.sessionId, reviews);
+  }, [playedMode, round?.sessionId, reviews]);
+
+  useEffect(() => {
     if (!challengeId) {
       setTargetChallenge(null);
       return;
@@ -94,15 +125,36 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     setBusy(true);
     setError('');
     try {
-      const started = await startGame(mode);
+      const randomStarted = mode === 'random' ? await startRandomJourney(loadRandomJourneyToken()).catch(async (caught) => {
+        if (caught instanceof GameApiError && caught.status === 404) {
+          clearRandomJourneyToken();
+          return startRandomJourney(null);
+        }
+        throw caught;
+      }) : null;
+      if (randomStarted) {
+        saveRandomJourneyToken(randomStarted.run.token);
+        setRandomRun(randomStarted.run);
+        if (!randomStarted.round) {
+          setRound(null);
+          setPlayedMode(null);
+          return;
+        }
+      }
+      const started = randomStarted?.round ?? await startGame(mode);
+      const restoredReviews = randomStarted ? loadRandomBatchReviews(started.sessionId).map((review) => ({ ...review, locationPending: false })) : [];
       activeSessionRef.current = started.sessionId;
+      reconciledRandomSession.current = '';
+      setPlayedMode(mode);
+      setLeaderboardResult(null);
+      setLeaderboardError('');
       setRound(started);
       setPoint(null);
       setSelectedPlaceName('');
       setResult(null);
-      setReviews([]);
+      setReviews(restoredReviews);
       setRevealComplete(false);
-      setTotalScore(0);
+      setTotalScore(randomStarted?.run.activeSessionScore ?? restoredReviews.reduce((sum, review) => sum + review.score, 0));
       setSharedChallenge(null);
       setInvitationError('');
       invitationRequestRef.current = '';
@@ -114,6 +166,12 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     }
   };
 
+  const beginFreshRandom = async () => {
+    clearRandomJourneyToken();
+    setRandomRun(null);
+    await beginMode('random');
+  };
+
   const beginChallenge = async () => {
     if (!challengeId) return;
     setBusy(true);
@@ -121,6 +179,10 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     try {
       const started = await startChallenge(challengeId);
       activeSessionRef.current = started.round.sessionId;
+      setPlayedMode(null);
+      setRandomRun(null);
+      setLeaderboardResult(null);
+      setLeaderboardError('');
       setTargetChallenge(started.challenge);
       setRound(started.round);
       setPoint(null);
@@ -190,6 +252,17 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
     return () => window.clearTimeout(fallback);
   }, [result]);
 
+  useEffect(() => {
+    if (!result?.completed || !revealComplete || playedMode !== 'random' || !round || !randomRun) return;
+    if (reconciledRandomSession.current === round.sessionId) return;
+    reconciledRandomSession.current = round.sessionId;
+    setRandomProgressBusy(true);
+    void getRandomJourneyProgress(randomRun.token).then(setRandomRun).catch((caught: Error) => {
+      reconciledRandomSession.current = '';
+      setLeaderboardError(caught.message || 'Random progress could not be updated.');
+    }).finally(() => setRandomProgressBusy(false));
+  }, [result?.completed, revealComplete, playedMode, round?.sessionId, randomRun?.token]);
+
   const photoPanBounds = (zoom: number) => {
     const viewport = photoViewportRef.current;
     const image = photoImageRef.current;
@@ -219,31 +292,56 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
   };
 
   const createInvitation = async (sessionId: string) => {
-    if (invitationRequestRef.current === sessionId) return;
-    invitationRequestRef.current = sessionId;
-    setCreatingInvitation(true);
-    setInvitationError('');
-    try {
-      setSharedChallenge(await createChallenge(sessionId));
-    } catch (caught) {
-      invitationRequestRef.current = '';
-      setInvitationError(caught instanceof Error ? caught.message : 'The invitation could not be created.');
-    } finally {
-      setCreatingInvitation(false);
-    }
+    await runAuthenticated('create a same-five invitation', async () => {
+      if (invitationRequestRef.current === sessionId) return;
+      invitationRequestRef.current = sessionId;
+      setCreatingInvitation(true);
+      setInvitationError('');
+      try {
+        setSharedChallenge(await createChallenge(sessionId));
+      } catch (caught) {
+        invitationRequestRef.current = '';
+        setInvitationError(caught instanceof Error ? caught.message : 'The invitation could not be created.');
+      } finally {
+        setCreatingInvitation(false);
+      }
+    });
   };
 
-  useEffect(() => {
-    if (result?.completed && revealComplete && round && !sharedChallenge && !invitationError) {
-      void createInvitation(round.sessionId);
-    }
-  }, [result?.completed, revealComplete, round?.sessionId, sharedChallenge, invitationError]);
+  const saveRandomRun = async () => {
+    if (!randomRun || !randomJourneyCanRank(randomRun)) return;
+    await runAuthenticated('save to leaderboard', async () => {
+      setSavingLeaderboard(true);
+      setLeaderboardError('');
+      try {
+        setLeaderboardResult(await saveRandomLeaderboard(randomRun.token));
+      } catch (caught) {
+        setLeaderboardError(caught instanceof Error ? caught.message : 'Your cumulative score could not be saved.');
+      } finally { setSavingLeaderboard(false); }
+    });
+  };
+
+  const saveLeaderboard = async () => {
+    if (!round || !playedMode) return;
+    if (playedMode === 'random') return saveRandomRun();
+    await runAuthenticated('save to leaderboard', async () => {
+      setSavingLeaderboard(true);
+      setLeaderboardError('');
+      try {
+        setLeaderboardResult(await saveLeaderboardBest(playedMode, round.sessionId));
+      } catch (caught) {
+        setLeaderboardError(caught instanceof Error ? caught.message : 'Your score could not be saved.');
+      } finally {
+        setSavingLeaderboard(false);
+      }
+    });
+  };
 
   const saveReview = async () => {
     setSavingReview(true);
     setError('');
     try {
-      await downloadReviewCard(buildReviewCardData(reviews, totalScore));
+      await downloadReviewCard(buildReviewCardData(reviews, totalScore, round?.totalRounds ?? 5));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The review image could not be saved.');
     } finally {
@@ -298,7 +396,7 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
       <main className="guess-intro page-frame page-frame--column">
         <FlightTrail className="guess-intro__trail" />
         <div className="guess-intro__heading">
-          <p className="page-kicker">Five photographs · One world</p>
+          <p className="page-kicker">Photographs · One world</p>
           <h1>Guess Where</h1>
           <p>Study the photograph, search if you need to, then place one final Pin.</p>
           <WitchMotif className="guess-intro__witch" />
@@ -306,9 +404,9 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
 
         {challengeId && targetChallenge ? (
           <section className="challenge-invite">
-            <p className="page-kicker">Same five photographs</p>
-            <strong>{targetChallenge.score.toLocaleString()} / 25,000</strong>
-            <p>Play the exact same five rounds and compare your result.</p>
+            <p className="page-kicker">Same {targetChallenge.totalRounds} photographs</p>
+            <strong>{targetChallenge.score.toLocaleString()} / {(targetChallenge.totalRounds * 5000).toLocaleString()}</strong>
+            <p>Play the exact same {targetChallenge.totalRounds} rounds and compare your result.</p>
             <button disabled={busy} onClick={() => void beginChallenge()} type="button">
               {busy ? 'Starting…' : 'Start challenge'}
             </button>
@@ -318,18 +416,23 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
             {modes.map((mode) => (
               <button
                 className="guess-mode"
-                disabled={busy || Boolean(challengeId)}
+                disabled={busy || Boolean(challengeId) || (mode.id === 'random' && Boolean(randomRun?.complete))}
                 key={mode.id}
                 onClick={() => void beginMode(mode.id)}
                 type="button"
               >
                 <span>{mode.name}</span>
-                <small>{mode.note}</small>
+                <small>{mode.id === 'random' && randomRun ? randomJourneyCopy(randomRun) : mode.note}</small>
               </button>
             ))}
           </div>
         )}
         {busy && !targetChallenge && <p className="guess-intro__status">Connecting to the game…</p>}
+        {randomRun?.complete && <p className="guess-intro__status">You explored all {randomRun.total} Random places. Your cumulative score is {randomRun.cumulativeScore.toLocaleString()} points.</p>}
+        {randomRun && !randomRun.rankable && <div className="guess-intro__random-finish"><p>The photo archive changed since this journey began. You can finish it, but only a fresh journey can join the current Random leaderboard.</p><button disabled={busy} onClick={() => void beginFreshRandom()} type="button">Start a new Random journey</button></div>}
+        {randomRun && randomJourneyCanRank(randomRun) && <div className="guess-intro__random-finish"><button disabled={savingLeaderboard} onClick={() => void saveRandomRun()} type="button">{savingLeaderboard ? 'Saving…' : 'Save Random total to leaderboard'}</button>{leaderboardResult && <p>{leaderboardResultCopy(leaderboardResult)} Your rank: #{leaderboardResult.rank}</p>}{leaderboardError && <p role="alert">{leaderboardError}</p>}</div>}
+        <AppLink className="guess-intro__leaderboard" href="/guess-where/leaderboards/easy">See all leaderboards ↗</AppLink>
+        {visitor && <p className="guess-intro__visitor">Playing as {visitor.username}<button onClick={() => void signOut()} type="button">Sign out</button></p>}
         {error && <p className="guess-error" role="alert">{error}</p>}
       </main>
     );
@@ -466,16 +569,25 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
 
         {result?.completed && revealComplete && (
           <section className="game-finish">
-            <p className="page-kicker">Five rounds complete</p>
-            <h2>{result.totalScore.toLocaleString()} <span>/ 25,000</span></h2>
+            <p className="page-kicker">{round.totalRounds} rounds complete</p>
+            <h2>{result.totalScore.toLocaleString()} <span>/ {(round.totalRounds * 5000).toLocaleString()}</span></h2>
             {targetChallenge && (
               <p className="game-finish__comparison">
                 Shared score: {targetChallenge.score.toLocaleString()}
               </p>
             )}
-            <FiveRoundReview onSave={() => void saveReview()} reviews={reviews} saving={savingReview} />
+            <FiveRoundReview onSave={() => void saveReview()} reviews={reviews} saving={savingReview} totalRounds={round.totalRounds} />
+            {playedMode === 'random' && randomRun && (
+              <div className="random-journey-progress">
+                <p className="page-kicker">Random journey</p>
+                <strong>{randomProgressBusy ? 'Updating your journey…' : randomJourneyCopy(randomRun)}</strong>
+                {!randomProgressBusy && !randomJourneyFinished(randomRun) && <button onClick={() => void beginMode('random')} type="button">Continue Random journey →</button>}
+                {randomJourneyCanRank(randomRun) && <p>All places explored. You can now save your cumulative score to the Random leaderboard.</p>}
+                {!randomRun.rankable && <p>The photo archive changed since this journey began. This score cannot join the current leaderboard. <button onClick={() => void beginFreshRandom()} type="button">Start a new Random journey</button></p>}
+              </div>
+            )}
             <div className="game-invitation">
-              <p className="page-kicker">Share the same five</p>
+              <p className="page-kicker">Share the same {round.totalRounds}</p>
               <h3>Invite someone to play</h3>
               <p>The invitation keeps the answers hidden until each photograph is played.</p>
               {!sharedChallenge ? (
@@ -488,8 +600,8 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
                 </div>
               ) : (
               <div className="share-card">
-                <p>Invitation card · Same five photographs</p>
-                <strong>{sharedChallenge.score.toLocaleString()} / 25,000</strong>
+                <p>Invitation card · Same {sharedChallenge.totalRounds} photographs</p>
+                <strong>{sharedChallenge.score.toLocaleString()} / {(sharedChallenge.totalRounds * 5000).toLocaleString()}</strong>
                 {qrCode && <img alt="QR code for the same-five challenge" src={qrCode} />}
                 <a href={challengeUrl}>{challengeUrl}</a>
                 <div className="share-card__actions">
@@ -512,6 +624,29 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
               )}
               {invitationError && <p className="guess-error" role="alert">{invitationError}</p>}
             </div>
+            {playedMode && (
+              <section className="leaderboard-preview">
+                <p className="page-kicker">Your best journey</p>
+                <h3>{playedMode[0].toUpperCase() + playedMode.slice(1)} leaderboard</h3>
+                <p>{playedMode === 'random'
+                  ? 'Random 只按完成全部照片后的累计总分排行；每组照片不会单独上榜。'
+                  : '每个模式只展示你的历史最高分；较低成绩不会覆盖最高分，但本次成绩仍可分享。'}</p>
+                {(playedMode !== 'random' || (randomRun && randomJourneyFinished(randomRun))) && (
+                  <button disabled={savingLeaderboard} onClick={() => void saveLeaderboard()} type="button">
+                    {savingLeaderboard ? 'Saving score…' : 'Save to leaderboard'}
+                  </button>
+                )}
+                {leaderboardError && <p className="guess-error" role="alert">{leaderboardError}</p>}
+                {leaderboardResult && (
+                  <div className="leaderboard-preview__result" role="status">
+                    <p>{leaderboardResultCopy(leaderboardResult)}</p>
+                    <p>Your rank: #{leaderboardResult.rank}</p>
+                    {leaderboardResult.topThree.length > 0 && <LeaderboardTable entries={leaderboardResult.topThree} />}
+                  </div>
+                )}
+                <p className="leaderboard-preview__links"><AppLink href={`/guess-where/leaderboards/${playedMode}`}>View full leaderboard →</AppLink></p>
+              </section>
+            )}
           </section>
         )}
 

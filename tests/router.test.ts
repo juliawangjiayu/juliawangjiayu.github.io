@@ -8,6 +8,9 @@ test('matchRoute recognizes every public destination and decodes collection ids'
   assert.deepEqual(matchRoute('/collections'), { name: 'collections' });
   assert.deepEqual(matchRoute('/collections/c_%E5%9F%8E%E5%B8%82'), { name: 'collection', id: 'c_城市' });
   assert.deepEqual(matchRoute('/guess-where'), { name: 'guess-where' });
+  assert.deepEqual(matchRoute('/guess-where/leaderboards/easy'), { name: 'guess-where-leaderboard', mode: 'easy' });
+  assert.deepEqual(matchRoute('/guess-where/leaderboards/random'), { name: 'guess-where-leaderboard', mode: 'random' });
+  assert.deepEqual(matchRoute('/guess-where/leaderboards/wild'), { name: 'not-found' });
   assert.deepEqual(matchRoute('/guess-where/challenge/abc%20123'), {
     name: 'guess-where-challenge',
     id: 'abc 123',

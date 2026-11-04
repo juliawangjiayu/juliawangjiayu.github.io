@@ -12,8 +12,15 @@ test('invitation image contains the same-five link and score without answers', (
   assert.deepEqual(card, {
     url: 'https://juliawangjiayu.github.io/guess-where/challenge/five%2Fa%20b',
     score: 12345,
+    totalRounds: 5,
   });
   assert.doesNotMatch(JSON.stringify(card), /answer|latitude|longitude|radius|photoId/i);
+});
+
+test('invitation image supports a four-photo final Random batch', () => {
+  const card = buildInvitationCardData({ id: 'last-four', score: 9000, totalRounds: 4 }, 'http://localhost:4173');
+  assert.equal(card.totalRounds, 4);
+  assert.equal(card.url, 'http://localhost:4173/guess-where/challenge/last-four');
 });
 
 test('invitation image refuses a missing challenge', () => {

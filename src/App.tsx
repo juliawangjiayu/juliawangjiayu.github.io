@@ -4,6 +4,7 @@ import { useRoute } from './router.ts';
 import { HomePage } from './pages/HomePage.tsx';
 import { AboutPage } from './pages/AboutPage.tsx';
 import { GuessWherePage } from './pages/GuessWherePage.tsx';
+import { LeaderboardPage } from './pages/LeaderboardPage.tsx';
 import { CollectionsPage } from './pages/CollectionsPage.tsx';
 import { CollectionPage } from './pages/CollectionPage.tsx';
 import { sectionThemeForRoute } from './lib/sectionTheme.ts';
@@ -27,6 +28,7 @@ export default function App() {
   else if (route.name === 'about') page = <AboutPage />;
   else if (route.name === 'guess-where') page = <GuessWherePage />;
   else if (route.name === 'guess-where-challenge') page = <GuessWherePage challengeId={route.id} />;
+  else if (route.name === 'guess-where-leaderboard') page = <LeaderboardPage mode={route.mode} />;
   else if (route.name === 'collections') page = <CollectionsPage />;
   else if (route.name === 'collection') page = <CollectionPage collectionId={route.id} />;
   else page = <NotFoundPage />;

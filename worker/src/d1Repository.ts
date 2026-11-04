@@ -3,7 +3,11 @@ import type {
   GameAnswerRecord,
   GameRepository,
   GameSessionRecord,
+  RandomRunRecord, RandomBatchRecord,
+  VisitorRecord, VisitorSessionRecord, LeaderboardBestRecord, LeaderboardPage, SessionClaimResult,
 } from "./repository.ts";
+import { decodeLeaderboardCursor, encodeLeaderboardCursor } from './leaderboards.ts';
+import type { GameMode } from './sessions.ts';
 import type { AiPlaceConfigRecord } from "./aiPlaces.ts";
 import type { Difficulty, GamePhotoRecord } from "./sessions.ts";
 
@@ -36,6 +40,8 @@ interface SessionRow {
   question_ids: string;
   total_score: number;
   created_at: string;
+  claimed_by_visitor_id: string | null;
+  claimed_at: string | null;
 }
 
 interface AnswerRow {
@@ -53,8 +59,10 @@ interface ChallengeRow {
   id: string;
   question_ids: string;
   score: number;
-  total_rounds: 5;
+  total_rounds: 4 | 5;
   created_at: string;
+  created_by_visitor_id: string | null;
+  source_session_id: string | null;
 }
 
 interface AiPlaceConfigRow {
@@ -92,6 +100,8 @@ function mapSession(row: SessionRow): GameSessionRecord {
     questionIds: JSON.parse(row.question_ids) as string[],
     totalScore: row.total_score,
     createdAt: row.created_at,
+    claimedByVisitorId: row.claimed_by_visitor_id,
+    claimedAt: row.claimed_at,
   };
 }
 
@@ -115,6 +125,8 @@ function mapChallenge(row: ChallengeRow): ChallengeStorageRecord {
     score: row.score,
     totalRounds: row.total_rounds,
     createdAt: row.created_at,
+    createdByVisitorId: row.created_by_visitor_id,
+    sourceSessionId: row.source_session_id,
   };
 }
 
@@ -135,6 +147,18 @@ function mapAiPlaceConfig(row: AiPlaceConfigRow): AiPlaceConfigRecord {
   };
 }
 
+
+interface VisitorRow { id: string; username: string; username_key: string; email_verifier: string; created_at: string; updated_at: string }
+interface VisitorSessionRow { token_hash: string; visitor_id: string; created_at: string; last_seen_at: string; expires_at: string }
+interface BestRow { visitor_id: string; mode: GameMode; score: number; session_id: string; achieved_at: string; updated_at: string }
+interface RandomRunRow { token_hash: string; season_id: string; question_ids: string; created_at: string; claimed_by_visitor_id: string | null; claimed_at: string | null }
+interface RandomBatchRow { batch_index: number; session_id: string }
+interface RandomBestRow { visitor_id: string; season_id: string; score: number; run_token_hash: string; achieved_at: string; updated_at: string }
+function mapVisitor(row: VisitorRow): VisitorRecord { return { id: row.id, username: row.username, usernameKey: row.username_key, emailVerifier: row.email_verifier, createdAt: row.created_at, updatedAt: row.updated_at }; }
+function mapVisitorSession(row: VisitorSessionRow): VisitorSessionRecord { return { tokenHash: row.token_hash, visitorId: row.visitor_id, createdAt: row.created_at, lastSeenAt: row.last_seen_at, expiresAt: row.expires_at }; }
+function mapBest(row: BestRow): LeaderboardBestRecord { return { visitorId: row.visitor_id, mode: row.mode, score: row.score, sessionId: row.session_id, achievedAt: row.achieved_at, updatedAt: row.updated_at }; }
+function mapRandomBest(row: RandomBestRow): LeaderboardBestRecord { return { visitorId: row.visitor_id, mode: 'random', score: row.score, sessionId: row.run_token_hash, achievedAt: row.achieved_at, updatedAt: row.updated_at, seasonId: row.season_id }; }
+
 const PHOTO_COLUMNS = `
   photo_id,
   image_url,
@@ -147,7 +171,8 @@ const PHOTO_COLUMNS = `
 `;
 
 export class D1GameRepository implements GameRepository {
-  constructor(private readonly database: D1DatabaseLike) {}
+  private readonly database: D1DatabaseLike;
+  constructor(database: D1DatabaseLike) { this.database = database; }
 
   async listEnabledGamePhotos(): Promise<GamePhotoRecord[]> {
     const result = await this.database
@@ -183,7 +208,7 @@ export class D1GameRepository implements GameRepository {
   async getSession(sessionId: string): Promise<GameSessionRecord | null> {
     const row = await this.database
       .prepare(
-        `SELECT id, mode, question_ids, total_score, created_at
+        `SELECT id, mode, question_ids, total_score, created_at, claimed_by_visitor_id, claimed_at
          FROM game_sessions WHERE id = ?`,
       )
       .bind(sessionId)
@@ -243,11 +268,46 @@ export class D1GameRepository implements GameRepository {
       .run();
   }
 
+  async createRandomRun(run: RandomRunRecord): Promise<void> {
+    await this.database.prepare('INSERT INTO random_runs (token_hash, season_id, question_ids, created_at) VALUES (?, ?, ?, ?)')
+      .bind(run.tokenHash, run.seasonId, JSON.stringify(run.questionIds), run.createdAt).run();
+  }
+  async getRandomRun(tokenHash: string): Promise<RandomRunRecord | null> {
+    const row = await this.database.prepare('SELECT * FROM random_runs WHERE token_hash = ?').bind(tokenHash).first<RandomRunRow>();
+    return row ? { tokenHash: row.token_hash, seasonId: row.season_id, questionIds: JSON.parse(row.question_ids) as string[], createdAt: row.created_at, claimedByVisitorId: row.claimed_by_visitor_id, claimedAt: row.claimed_at } : null;
+  }
+  async listRandomBatches(tokenHash: string): Promise<RandomBatchRecord[]> {
+    const rows = await this.database.prepare('SELECT batch_index, session_id FROM random_run_batches WHERE token_hash = ? ORDER BY batch_index')
+      .bind(tokenHash).all<RandomBatchRow>();
+    return (rows.results ?? []).map((row) => ({ batchIndex: row.batch_index, sessionId: row.session_id }));
+  }
+  async getOrCreateRandomBatch(tokenHash: string, batchIndex: number, session: GameSessionRecord): Promise<GameSessionRecord> {
+    const existing = (await this.listRandomBatches(tokenHash)).find((batch) => batch.batchIndex === batchIndex);
+    if (existing) return (await this.getSession(existing.sessionId))!;
+    await this.database.batch([
+      this.database.prepare(`INSERT INTO game_sessions (id, mode, question_ids, total_score, created_at) VALUES (?, 'random', ?, 0, ?)`)
+        .bind(session.id, JSON.stringify(session.questionIds), session.createdAt),
+      this.database.prepare('INSERT OR IGNORE INTO random_run_batches (token_hash, batch_index, session_id) VALUES (?, ?, ?)')
+        .bind(tokenHash, batchIndex, session.id),
+    ]);
+    const canonical = (await this.listRandomBatches(tokenHash)).find((batch) => batch.batchIndex === batchIndex);
+    if (!canonical) throw new Error('random_batch_write_failed');
+    if (canonical.sessionId !== session.id) await this.database.prepare('DELETE FROM game_sessions WHERE id = ?').bind(session.id).run();
+    return (await this.getSession(canonical.sessionId))!;
+  }
+  async claimRandomRun(tokenHash: string, visitorId: string, claimedAt: string): Promise<SessionClaimResult> {
+    const write = await this.database.prepare('UPDATE random_runs SET claimed_by_visitor_id = ?, claimed_at = ? WHERE token_hash = ? AND claimed_by_visitor_id IS NULL')
+      .bind(visitorId, claimedAt, tokenHash).run();
+    const run = await this.getRandomRun(tokenHash);
+    const changes = (write as { meta?: { changes?: number } }).meta?.changes ?? 0;
+    return !run ? 'not_found' : run.claimedByVisitorId === visitorId ? (changes > 0 ? 'claimed' : 'already_owned') : 'already_claimed';
+  }
+
   async createChallenge(challenge: ChallengeStorageRecord): Promise<void> {
     await this.database
       .prepare(
-        `INSERT INTO challenges (id, question_ids, score, total_rounds, created_at)
-         VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO challenges (id, question_ids, score, total_rounds, created_at, created_by_visitor_id, source_session_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         challenge.id,
@@ -255,6 +315,8 @@ export class D1GameRepository implements GameRepository {
         challenge.score,
         challenge.totalRounds,
         challenge.createdAt,
+        challenge.createdByVisitorId ?? null,
+        challenge.sourceSessionId ?? null,
       )
       .run();
   }
@@ -262,7 +324,7 @@ export class D1GameRepository implements GameRepository {
   async getChallenge(challengeId: string): Promise<ChallengeStorageRecord | null> {
     const row = await this.database
       .prepare(
-        `SELECT id, question_ids, score, total_rounds, created_at
+        `SELECT id, question_ids, score, total_rounds, created_at, created_by_visitor_id, source_session_id
          FROM challenges WHERE id = ?`,
       )
       .bind(challengeId)
@@ -357,4 +419,82 @@ export class D1GameRepository implements GameRepository {
         .bind(config.version),
     ]);
   }
+
+  async findVisitorByUsernameKey(key: string): Promise<VisitorRecord | null> { const row = await this.database.prepare('SELECT * FROM visitors WHERE username_key = ?').bind(key).first<VisitorRow>(); return row ? mapVisitor(row) : null; }
+  async findVisitorByEmailVerifier(verifier: string): Promise<VisitorRecord | null> { const row = await this.database.prepare('SELECT * FROM visitors WHERE email_verifier = ?').bind(verifier).first<VisitorRow>(); return row ? mapVisitor(row) : null; }
+  async getVisitor(id: string): Promise<VisitorRecord | null> { const row = await this.database.prepare('SELECT * FROM visitors WHERE id = ?').bind(id).first<VisitorRow>(); return row ? mapVisitor(row) : null; }
+  async createVisitor(visitor: VisitorRecord): Promise<void> { await this.database.prepare('INSERT INTO visitors (id, username, username_key, email_verifier, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(visitor.id, visitor.username, visitor.usernameKey, visitor.emailVerifier, visitor.createdAt, visitor.updatedAt).run(); }
+  async createVisitorSession(session: VisitorSessionRecord): Promise<void> { await this.database.prepare('INSERT INTO visitor_sessions (token_hash, visitor_id, created_at, last_seen_at, expires_at) VALUES (?, ?, ?, ?, ?)').bind(session.tokenHash, session.visitorId, session.createdAt, session.lastSeenAt, session.expiresAt).run(); }
+  async getVisitorSession(hash: string): Promise<VisitorSessionRecord | null> { const row = await this.database.prepare('SELECT * FROM visitor_sessions WHERE token_hash = ?').bind(hash).first<VisitorSessionRow>(); return row ? mapVisitorSession(row) : null; }
+  async touchVisitorSession(hash: string, lastSeenAt: string): Promise<void> { await this.database.prepare('UPDATE visitor_sessions SET last_seen_at = ? WHERE token_hash = ?').bind(lastSeenAt, hash).run(); }
+  async revokeVisitorSession(hash: string): Promise<void> { await this.database.prepare('DELETE FROM visitor_sessions WHERE token_hash = ?').bind(hash).run(); }
+  async deleteExpiredVisitorSessions(visitorId: string, now: string): Promise<void> { const idle = new Date(Date.parse(now) - 30 * 86400000).toISOString(); await this.database.prepare('DELETE FROM visitor_sessions WHERE visitor_id = ? AND (expires_at <= ? OR last_seen_at <= ?)').bind(visitorId, now, idle).run(); }
+  async listVisitorSessions(visitorId: string): Promise<VisitorSessionRecord[]> { const rows = await this.database.prepare('SELECT * FROM visitor_sessions WHERE visitor_id = ? ORDER BY created_at, token_hash').bind(visitorId).all<VisitorSessionRow>(); return (rows.results ?? []).map(mapVisitorSession); }
+  async deleteVisitorSessions(hashes: string[]): Promise<void> { if (hashes.length) await this.database.batch(hashes.map((hash) => this.database.prepare('DELETE FROM visitor_sessions WHERE token_hash = ?').bind(hash))); }
+  async recordRateLimitEvent(scope: string, subjectHash: string, createdAt: string): Promise<void> { await this.database.prepare('INSERT INTO rate_limit_events (scope, subject_hash, created_at) VALUES (?, ?, ?)').bind(scope, subjectHash, createdAt).run(); }
+  async countRateLimitEvents(scope: string, subjectHash: string, since: string): Promise<number> { const row = await this.database.prepare('SELECT COUNT(*) AS count FROM rate_limit_events WHERE scope = ? AND subject_hash = ? AND created_at >= ?').bind(scope, subjectHash, since).first<{ count: number }>(); return row?.count ?? 0; }
+  async deleteRateLimitEventsBefore(cutoff: string): Promise<void> { await this.database.prepare('DELETE FROM rate_limit_events WHERE created_at < ?').bind(cutoff).run(); }
+  async consumeRateLimitEvent(scope: string, subjectHash: string, createdAt: string, since: string, max: number): Promise<boolean> {
+    const write = await this.database.prepare(`INSERT INTO rate_limit_events (scope, subject_hash, created_at)
+      SELECT ?, ?, ? WHERE (
+        SELECT COUNT(*) FROM rate_limit_events
+        WHERE scope = ? AND subject_hash = ? AND created_at >= ?
+      ) < ?`).bind(scope, subjectHash, createdAt, scope, subjectHash, since, max).run();
+    return ((write as { meta?: { changes?: number } }).meta?.changes ?? 0) > 0;
+  }
+  async claimGameSession(sessionId: string, visitorId: string, claimedAt: string): Promise<SessionClaimResult> {
+    const write = await this.database.prepare('UPDATE game_sessions SET claimed_by_visitor_id = ?, claimed_at = ? WHERE id = ? AND claimed_by_visitor_id IS NULL').bind(visitorId, claimedAt, sessionId).run();
+    const session = await this.getSession(sessionId);
+    const changes = (write as { meta?: { changes?: number } }).meta?.changes ?? 0;
+    return !session ? 'not_found' : session.claimedByVisitorId === visitorId ? (changes > 0 ? 'claimed' : 'already_owned') : 'already_claimed';
+  }
+  async getChallengeBySourceSessionId(sessionId: string): Promise<ChallengeStorageRecord | null> { const row = await this.database.prepare('SELECT * FROM challenges WHERE source_session_id = ?').bind(sessionId).first<ChallengeRow>(); return row ? mapChallenge(row) : null; }
+  async saveBestScore(candidate: LeaderboardBestRecord): Promise<{ updated: boolean; best: LeaderboardBestRecord }> {
+    if (candidate.mode === 'random') {
+      if (!candidate.seasonId) throw new Error('random_season_required');
+      const write = await this.database.prepare(`INSERT INTO random_leaderboard_bests (visitor_id, season_id, score, run_token_hash, achieved_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(visitor_id, season_id) DO UPDATE SET score = excluded.score, run_token_hash = excluded.run_token_hash, achieved_at = excluded.achieved_at, updated_at = excluded.updated_at
+        WHERE excluded.score > random_leaderboard_bests.score`).bind(candidate.visitorId, candidate.seasonId, candidate.score, candidate.sessionId, candidate.achievedAt, candidate.updatedAt).run();
+      const best = await this.getVisitorBest(candidate.visitorId, 'random', candidate.seasonId);
+      if (!best) throw new Error('leaderboard_write_failed');
+      return { updated: ((write as { meta?: { changes?: number } }).meta?.changes ?? 0) > 0, best };
+    }
+    const write = await this.database.prepare(`INSERT INTO leaderboard_bests (visitor_id, mode, score, session_id, achieved_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(visitor_id, mode) DO UPDATE SET score = excluded.score, session_id = excluded.session_id, achieved_at = excluded.achieved_at, updated_at = excluded.updated_at
+      WHERE excluded.score > leaderboard_bests.score`).bind(candidate.visitorId, candidate.mode, candidate.score, candidate.sessionId, candidate.achievedAt, candidate.updatedAt).run();
+    const best = await this.getVisitorBest(candidate.visitorId, candidate.mode);
+    if (!best) throw new Error('leaderboard_write_failed');
+    const changes = (write as { meta?: { changes?: number } }).meta?.changes ?? 0;
+    return { updated: changes > 0, best };
+  }
+  async getVisitorBest(visitorId: string, mode: GameMode, seasonId?: string): Promise<LeaderboardBestRecord | null> {
+    if (mode === 'random') { if (!seasonId) throw new Error('random_season_required'); const row = await this.database.prepare('SELECT * FROM random_leaderboard_bests WHERE visitor_id = ? AND season_id = ?').bind(visitorId, seasonId).first<RandomBestRow>(); return row ? mapRandomBest(row) : null; }
+    const row = await this.database.prepare('SELECT * FROM leaderboard_bests WHERE visitor_id = ? AND mode = ?').bind(visitorId, mode).first<BestRow>(); return row ? mapBest(row) : null;
+  }
+  async listLeaderboard(mode: GameMode, cursor: string | null, limit: number, seasonId?: string): Promise<LeaderboardPage> {
+    const tuple = cursor ? decodeLeaderboardCursor(cursor) : null;
+    if (mode === 'random') {
+      if (!seasonId) throw new Error('random_season_required');
+      const rows = await this.database.prepare(`WITH ranked AS (
+        SELECT b.*, v.username, ROW_NUMBER() OVER (ORDER BY b.score DESC, b.achieved_at ASC, b.visitor_id ASC) AS rank
+        FROM random_leaderboard_bests b JOIN visitors v ON v.id = b.visitor_id WHERE b.season_id = ?
+      ) SELECT * FROM ranked WHERE (? IS NULL OR score < ? OR (score = ? AND achieved_at > ?) OR (score = ? AND achieved_at = ? AND visitor_id > ?))
+      ORDER BY score DESC, achieved_at ASC, visitor_id ASC LIMIT ?`).bind(seasonId, tuple?.score ?? null, tuple?.score ?? null, tuple?.score ?? null, tuple?.achievedAt ?? null, tuple?.score ?? null, tuple?.achievedAt ?? null, tuple?.visitorId ?? null, limit + 1).all<RandomBestRow & { username: string; rank: number }>();
+      const all = rows.results ?? []; const page = all.slice(0, limit);
+      return { entries: page.map((row) => ({ visitorId: row.visitor_id, username: row.username, score: row.score, achievedAt: row.achieved_at, rank: row.rank })), nextCursor: all.length > limit && page.length ? encodeLeaderboardCursor(mapRandomBest(page[page.length - 1])) : null };
+    }
+    const rows = await this.database.prepare(`WITH ranked AS (
+      SELECT b.*, v.username, ROW_NUMBER() OVER (ORDER BY b.score DESC, b.achieved_at ASC, b.visitor_id ASC) AS rank
+      FROM leaderboard_bests b JOIN visitors v ON v.id = b.visitor_id WHERE b.mode = ?
+    ) SELECT * FROM ranked WHERE (? IS NULL OR score < ? OR (score = ? AND achieved_at > ?) OR (score = ? AND achieved_at = ? AND visitor_id > ?))
+    ORDER BY score DESC, achieved_at ASC, visitor_id ASC LIMIT ?`).bind(mode, tuple?.score ?? null, tuple?.score ?? null, tuple?.score ?? null, tuple?.achievedAt ?? null, tuple?.score ?? null, tuple?.achievedAt ?? null, tuple?.visitorId ?? null, limit + 1).all<BestRow & { username: string; rank: number }>();
+    const all = rows.results ?? [];
+    const page = all.slice(0, limit);
+    return { entries: page.map((row) => ({ visitorId: row.visitor_id, username: row.username, score: row.score, achievedAt: row.achieved_at, rank: row.rank })), nextCursor: all.length > limit && page.length ? encodeLeaderboardCursor(mapBest(page[page.length - 1])) : null };
+  }
+  async getLeaderboardRank(mode: GameMode, visitorId: string, seasonId?: string): Promise<number | null> {
+    if (mode === 'random') { if (!seasonId) throw new Error('random_season_required'); const row = await this.database.prepare(`WITH ranked AS (SELECT visitor_id, ROW_NUMBER() OVER (ORDER BY score DESC, achieved_at, visitor_id) AS rank FROM random_leaderboard_bests WHERE season_id = ?) SELECT rank FROM ranked WHERE visitor_id = ?`).bind(seasonId, visitorId).first<{ rank: number }>(); return row?.rank ?? null; }
+    const row = await this.database.prepare(`WITH ranked AS (SELECT visitor_id, ROW_NUMBER() OVER (ORDER BY score DESC, achieved_at, visitor_id) AS rank FROM leaderboard_bests WHERE mode = ?) SELECT rank FROM ranked WHERE visitor_id = ?`).bind(mode, visitorId).first<{ rank: number }>(); return row?.rank ?? null;
+  }
+
 }

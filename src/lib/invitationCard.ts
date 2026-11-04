@@ -4,15 +4,17 @@ import { wrapReviewText } from './reviewCard.ts';
 export type InvitationCardData = {
   url: string;
   score: number;
+  totalRounds: 4 | 5;
 };
 
 export function buildInvitationCardData(challenge: ChallengeSummary, origin: string): InvitationCardData {
-  if (!challenge.id.trim() || challenge.totalRounds !== 5) {
-    throw new Error('A completed five-round challenge is required for the invitation.');
+  if (!challenge.id.trim() || ![4, 5].includes(challenge.totalRounds)) {
+    throw new Error('A completed challenge is required for the invitation.');
   }
   return {
     url: new URL(`/guess-where/challenge/${encodeURIComponent(challenge.id)}`, origin).toString(),
     score: challenge.score,
+    totalRounds: challenge.totalRounds,
   };
 }
 
@@ -47,9 +49,9 @@ export async function renderInvitationCard(data: InvitationCardData): Promise<Bl
 
   context.fillStyle = '#352d3e';
   context.font = '66px Georgia, serif';
-  context.fillText('Five places, one journey.', 80, 212);
+  context.fillText(`${data.totalRounds === 5 ? 'Five' : 'Four'} places, one journey.`, 80, 212);
   context.font = '27px Arial, sans-serif';
-  context.fillText('Play the same five photographs and see where they take you.', 82, 264);
+  context.fillText(`Play the same ${data.totalRounds} photographs and see where they take you.`, 82, 264);
 
   context.fillStyle = '#fffafc';
   context.fillRect(80, 316, 920, 541);
@@ -58,7 +60,7 @@ export async function renderInvitationCard(data: InvitationCardData): Promise<Bl
   context.fillText('A LITTLE CHALLENGE FOR YOU', 113, 365);
   context.fillStyle = '#352d3e';
   context.font = '39px Georgia, serif';
-  context.fillText(`${data.score.toLocaleString()} / 25,000 points to beat`, 113, 417);
+  context.fillText(`${data.score.toLocaleString()} / ${(data.totalRounds * 5000).toLocaleString()} points to beat`, 113, 417);
   context.drawImage(qr, 336, 440, 408, 408);
 
   context.fillStyle = '#756684';

@@ -4,18 +4,20 @@ type ReviewCardRow = Pick<RoundReview, 'round' | 'photoUrl' | 'guessLabel' | 'gu
 
 export type ReviewCardData = {
   totalScore: number;
+  totalRounds: 4 | 5;
   rows: ReviewCardRow[];
 };
 
-export function buildReviewCardData(reviews: RoundReview[], totalScore: number): ReviewCardData {
-  if (reviews.length !== 5 || reviews.some((review, index) => review.round !== index + 1)) {
-    throw new Error('Finish all five rounds before saving the review.');
+export function buildReviewCardData(reviews: RoundReview[], totalScore: number, totalRounds: 4 | 5 = 5): ReviewCardData {
+  if (reviews.length !== totalRounds || reviews.some((review, index) => review.round !== index + 1)) {
+    throw new Error(`Finish all ${totalRounds === 5 ? 'five' : 'four'} rounds before saving the review.`);
   }
   if (reviews.some((review) => review.locationPending)) {
     throw new Error('Wait for the nearby place lookup before saving the review.');
   }
   return {
     totalScore,
+    totalRounds,
     rows: reviews.map(({ round, photoUrl, guessLabel, guessPosition, answerLabel, score }) => ({
       round, photoUrl, guessLabel, guessPosition, answerLabel, score,
     })),
@@ -97,12 +99,12 @@ export async function renderReviewCard(data: ReviewCardData): Promise<Blob> {
   context.font = '26px Georgia, serif';
   context.fillText('Julia Wang · Guess Where', 76, 92);
   context.font = '72px Georgia, serif';
-  context.fillText('Five places, one journey.', 76, 188);
+  context.fillText(`${data.totalRounds === 5 ? 'Five' : 'Four'} places, one journey.`, 76, 188);
   context.font = '28px Arial, sans-serif';
-  context.fillText('My five-round review', 80, 244);
+  context.fillText(`My ${data.totalRounds}-round review`, 80, 244);
   context.textAlign = 'right';
   context.font = '56px Georgia, serif';
-  context.fillText(`${data.totalScore.toLocaleString()} / 25,000`, 1120, 250);
+  context.fillText(`${data.totalScore.toLocaleString()} / ${(data.totalRounds * 5000).toLocaleString()}`, 1120, 250);
   context.textAlign = 'left';
 
   const photos = await Promise.all(data.rows.map((row) => loadPhoto(row.photoUrl)));

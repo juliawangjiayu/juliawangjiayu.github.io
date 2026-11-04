@@ -2,7 +2,7 @@ export interface ChallengeRecord {
   id: string;
   questionIds: string[];
   score: number;
-  totalRounds: 5;
+  totalRounds: 4 | 5;
 }
 
 export function createChallengeRecord(
@@ -10,14 +10,14 @@ export function createChallengeRecord(
   questionIds: string[],
   score: number,
 ): ChallengeRecord {
-  if (questionIds.length !== 5) {
-    throw new Error("A challenge must contain exactly five questions.");
+  if (questionIds.length !== 4 && questionIds.length !== 5) {
+    throw new Error("A challenge must contain four or five questions.");
   }
 
   return {
     id,
     questionIds: [...questionIds],
     score,
-    totalRounds: 5,
+    totalRounds: questionIds.length as 4 | 5,
   };
 }

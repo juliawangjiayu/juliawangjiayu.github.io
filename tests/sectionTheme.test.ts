@@ -7,5 +7,6 @@ test('the About route gets its own theme without changing other page themes', ()
   assert.equal(sectionThemeForRoute('about'), 'site-shell--about');
   assert.equal(sectionThemeForRoute('collections'), 'site-shell--collections');
   assert.equal(sectionThemeForRoute('guess-where'), 'site-shell--guess');
+  assert.equal(sectionThemeForRoute('guess-where-leaderboard'), 'site-shell--guess');
   assert.equal(sectionThemeForRoute('home'), '');
 });

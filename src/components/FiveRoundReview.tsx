@@ -2,19 +2,20 @@ import type { RoundReview } from '../lib/roundReview.ts';
 
 type FiveRoundReviewProps = {
   reviews: RoundReview[];
+  totalRounds?: 4 | 5;
   saving: boolean;
   onSave: () => void;
 };
 
-export function FiveRoundReview({ reviews, saving, onSave }: FiveRoundReviewProps) {
+export function FiveRoundReview({ reviews, totalRounds = 5, saving, onSave }: FiveRoundReviewProps) {
   return (
     <section aria-labelledby="five-round-review-title" className="five-round-review">
       <div className="five-round-review__heading">
         <div>
           <p className="page-kicker">Your journey</p>
-          <h3 id="five-round-review-title">The five places</h3>
+          <h3 id="five-round-review-title">The {totalRounds === 5 ? 'five' : 'four'} places</h3>
         </div>
-        <span>01 — 05</span>
+        <span>01 — {String(totalRounds).padStart(2, '0')}</span>
       </div>
       <ol className="five-round-review__list">
         {reviews.map((review) => (
@@ -36,7 +37,7 @@ export function FiveRoundReview({ reviews, saving, onSave }: FiveRoundReviewProp
       </ol>
       <div className="five-round-review__actions">
         <p>Contains answers — share after friends play.</p>
-        <button disabled={saving || reviews.length !== 5 || reviews.some((review) => review.locationPending)} onClick={onSave} type="button">
+        <button disabled={saving || reviews.length !== totalRounds || reviews.some((review) => review.locationPending)} onClick={onSave} type="button">
           {saving ? 'Saving…' : reviews.some((review) => review.locationPending) ? 'Finding place names…' : 'Save review image'}
         </button>
       </div>
