@@ -60,6 +60,7 @@ img {
   align-items: flex-start;
   gap: 32px;
   padding: 32px var(--page-pad) 24px;
+  padding-right: max(var(--page-pad), 8vw);
 }
 
 .site-name {
