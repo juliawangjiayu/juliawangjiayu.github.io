@@ -1306,8 +1306,8 @@ img {
 .collection-index__leaf:nth-of-type(2) { top: 7%; right: 23%; }
 .collection-index__leaf:nth-of-type(3) { top: 24%; left: 1%; }
 .collection-index__leaf:nth-of-type(4) { top: 45%; left: 8%; }
-.collection-index__leaf:nth-of-type(5) { top: 18%; right: 1%; }
-.collection-index__leaf:nth-of-type(6) { top: 48%; right: 5%; }
+.collection-index__leaf:nth-of-type(5) { top: 18%; right: 8%; }
+.collection-index__leaf:nth-of-type(6) { top: 48%; right: 8%; }
 .collection-index__leaf:nth-of-type(7) { top: 74%; left: 14%; }
 .collection-index__leaf:nth-of-type(8) { bottom: 4%; left: 37%; }
 .collection-index__leaf:nth-of-type(9) { top: 73%; right: 12%; }
