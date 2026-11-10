@@ -55,9 +55,9 @@ img {
   position: relative;
   z-index: 20;
   min-height: var(--header-height);
-  display: flex;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: flex-start;
-  justify-content: space-between;
   gap: 32px;
   padding: 32px var(--page-pad) 24px;
 }
@@ -72,6 +72,7 @@ img {
 
 .site-nav {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 12px clamp(20px, 2.4vw, 38px);
@@ -1852,6 +1853,7 @@ img {
   }
 
   .site-header {
+    display: flex;
     min-height: var(--header-height);
     flex-direction: column;
     gap: 24px;
