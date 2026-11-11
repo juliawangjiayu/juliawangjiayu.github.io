@@ -1,6 +1,7 @@
 # Visitor Identity, Comments, Leaderboards, and Share Cards — Design
 
 Status: Proposed for implementation after builder review
+Message and moderation sections are superseded by `2026-11-10-direct-messages-design.md`; visitor identity, Guess Where, and leaderboard decisions remain applicable.
 Date: 2026-10-28
 Projects: `juliawangjiayu.github.io` and `photo-booth`
 

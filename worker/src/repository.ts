@@ -1,4 +1,5 @@
 import type { ChallengeRecord } from "./challenges.ts";
+import type { CommentRecord, CommentTargetType } from './comments.ts';
 import type { AiPlaceConfigRecord } from "./aiPlaces.ts";
 import type { Proximity } from "./scoring.ts";
 import type { GameMode, GamePhotoRecord } from "./sessions.ts";
@@ -41,7 +42,7 @@ export interface ChallengeStorageRecord extends ChallengeRecord {
   sourceSessionId?: string | null;
 }
 
-export interface GameRepository extends IdentityRepository, LeaderboardRepository {
+export interface GameRepository extends IdentityRepository, LeaderboardRepository, CommentRepository {
   listEnabledGamePhotos(): Promise<GamePhotoRecord[]>;
   getGamePhoto(photoId: string): Promise<GamePhotoRecord | null>;
   createSession(session: GameSessionRecord): Promise<void>;
@@ -61,6 +62,17 @@ export interface GameRepository extends IdentityRepository, LeaderboardRepositor
   getActiveAiPlaceConfig(): Promise<AiPlaceConfigRecord | null>;
   getAiPlaceConfigVersion(version: number): Promise<AiPlaceConfigRecord | null>;
   publishAiPlaceConfig(config: AiPlaceConfigRecord): Promise<void>;
+}
+
+export interface CommentRepository {
+  getComment(id: string): Promise<CommentRecord | null>;
+  getCommentBySubmission(visitorId: string, submissionKey: string): Promise<CommentRecord | null>;
+  insertCommentIfUnderLimit(comment: CommentRecord, since: string, max: number): Promise<boolean>;
+  listComments(targetType: CommentTargetType, targetId: string, offset: number, limit: number): Promise<CommentRecord[]>;
+  listRecentComments(offset: number, limit: number): Promise<CommentRecord[]>;
+  updateCommentBody(id: string, visitorId: string, body: string, updatedAt: string): Promise<boolean>;
+  softDeleteComment(id: string, visitorId: string | null, deletedAt: string): Promise<boolean>;
+  setCommentReply(id: string, body: string | null, updatedAt: string): Promise<boolean>;
 }
 
 export interface VisitorRecord { id: string; username: string; usernameKey: string; emailVerifier: string; createdAt: string; updatedAt: string }

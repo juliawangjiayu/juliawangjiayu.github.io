@@ -33,7 +33,7 @@ export function CollectionPage({ collectionId }: { collectionId: string }) {
         </div>
         <FrogMotif className="collection-page__frog" />
       </header>
-      <PhotoViewer photos={collection.photos} collectionTitle={collection.title} />
+      <PhotoViewer photos={collection.photos} collectionTitle={collection.title} collectionId={collection.id} />
     </main>
   );
 }

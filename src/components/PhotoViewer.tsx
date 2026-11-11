@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Info, Minus, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, MessageCircle, Minus, Plus } from 'lucide-react';
 import type { PublicPhoto } from '../content/types.ts';
 import {
   calculateViewerPanBounds,
@@ -12,15 +12,18 @@ import {
 } from '../lib/viewerState.ts';
 import { resolveSwipe } from '../lib/swipe.ts';
 import { PhotoInfoCard } from './PhotoInfoCard.tsx';
+import { CommentsPanel } from './CommentsPanel.tsx';
 
 type PhotoViewerProps = {
   photos: PublicPhoto[];
   collectionTitle: string;
+  collectionId: string;
 };
 
-export function PhotoViewer({ photos, collectionTitle }: PhotoViewerProps) {
+export function PhotoViewer({ photos, collectionTitle, collectionId }: PhotoViewerProps) {
   const [state, setState] = useState(() => createViewerState());
   const [viewMode, setViewMode] = useState<'album' | 'overview'>('album');
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const pointerStart = useRef<number | null>(null);
   const panGesture = useRef<{
     pointerId: number;
@@ -63,6 +66,7 @@ export function PhotoViewer({ photos, collectionTitle }: PhotoViewerProps) {
   const selectPhoto = (index: number) => {
     setState(createViewerState(index));
     setViewMode('album');
+    setCommentsOpen(false);
     window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   };
 
@@ -92,11 +96,14 @@ export function PhotoViewer({ photos, collectionTitle }: PhotoViewerProps) {
     setIsDragging(false);
     panGesture.current = null;
     pointerStart.current = null;
-  }, [collectionTitle]);
+    setCommentsOpen(false);
+  }, [collectionId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (viewMode !== 'album') return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
       if (event.key === 'ArrowLeft') move(-1);
       else if (event.key === 'ArrowRight') move(1);
       else if (event.key === 'Escape' && state.infoVisible) {
@@ -177,25 +184,30 @@ export function PhotoViewer({ photos, collectionTitle }: PhotoViewerProps) {
 
   return (
     <section
-      className={`photo-viewer${viewMode === 'overview' ? ' is-overview' : ''}`}
+      className={`photo-viewer${viewMode === 'overview' ? ' is-overview' : ''}${commentsOpen ? ' has-comments' : ''}`}
       aria-label={`${collectionTitle} photo viewer`}
     >
-      <div className="viewer-mode-switch" role="group" aria-label="Choose photo view">
-        <button
-          className={viewMode === 'album' ? 'is-active' : ''}
-          type="button"
-          onClick={() => changeViewMode('album')}
-          aria-pressed={viewMode === 'album'}
-        >
-          Album
-        </button>
-        <button
-          className={viewMode === 'overview' ? 'is-active' : ''}
-          type="button"
-          onClick={() => changeViewMode('overview')}
-          aria-pressed={viewMode === 'overview'}
-        >
-          Gallery
+      <div className="viewer-top-actions">
+        <div className="viewer-mode-switch" role="group" aria-label="Choose photo view">
+          <button
+            className={viewMode === 'album' ? 'is-active' : ''}
+            type="button"
+            onClick={() => changeViewMode('album')}
+            aria-pressed={viewMode === 'album'}
+          >
+            Album
+          </button>
+          <button
+            className={viewMode === 'overview' ? 'is-active' : ''}
+            type="button"
+            onClick={() => changeViewMode('overview')}
+            aria-pressed={viewMode === 'overview'}
+          >
+            Gallery
+          </button>
+        </div>
+        <button className="viewer-message-toggle" type="button" onClick={() => setCommentsOpen((open) => !open)} aria-expanded={commentsOpen}>
+          <MessageCircle size={18} aria-hidden="true" /> Messages
         </button>
       </div>
 
@@ -327,6 +339,7 @@ export function PhotoViewer({ photos, collectionTitle }: PhotoViewerProps) {
           </div>
         </>
       )}
+      {commentsOpen && <CommentsPanel photoId={current.id} collectionId={collectionId} onClose={() => setCommentsOpen(false)} />}
     </section>
   );
 }

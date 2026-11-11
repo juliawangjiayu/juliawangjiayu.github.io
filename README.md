@@ -70,6 +70,14 @@ Photo Booth SQLite is the private authoring source. Local and production D1 are 
 
 The production D1 `database_id` is committed in `wrangler.toml`; secret values remain outside Git.
 
+## Collection messages
+
+The Collection detail viewer has a Messages control with `This photo` and `Collection` tabs. Anyone can read public messages; posting asks for the existing lightweight username/email identity. Accepted messages appear immediately. The Worker permits at most three new messages per visitor in any rolling 60 seconds across all targets. A visitor can edit or remove their own message; editing removes an existing Julia reply. Message text is plain text, limited to 500 Unicode characters, with no rich text or clickable links.
+
+The messages and Julia replies live only in Worker D1. Photo Booth's Messages workspace reads them through its local FastAPI backend and lets Julia reply or remove a message. There is no approval queue. Photo Booth uses the HTTPS website endpoint and publisher token already configured under **AI & Places → Website publishing endpoint**; the token remains in macOS Keychain and never enters its browser bundle or SQLite.
+
+Apply `0007_comments.sql` to local D1 for local testing and to production D1 before publishing the frontend. A plain username/email pair does not verify mailbox ownership, so the per-visitor limit is a simple flood control rather than a strong anti-spam identity check.
+
 ## Production deployment
 
 The production Worker is deployed at:

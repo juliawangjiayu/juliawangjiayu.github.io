@@ -1,5 +1,7 @@
 # Comments and Photo Booth Moderation Implementation Plan
 
+Superseded by `2026-11-10-direct-messages.md`: accepted visitor messages now publish immediately with a three-per-minute limit and no approval queue.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let authenticated visitors leave photo or Collection messages that become public only after Julia reviews them in Photo Booth and may reply as `Julia Wang`.

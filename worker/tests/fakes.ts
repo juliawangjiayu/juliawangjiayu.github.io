@@ -7,6 +7,7 @@ import type {
   VisitorRecord, VisitorSessionRecord, LeaderboardBestRecord, LeaderboardPage, SessionClaimResult,
 } from "../src/repository.ts";
 import type { AiPlaceConfigRecord } from "../src/aiPlaces.ts";
+import type { CommentRecord, CommentTargetType } from '../src/comments.ts';
 import { compareBest, decodeLeaderboardCursor, encodeLeaderboardCursor } from '../src/leaderboards.ts';
 import type { GameMode } from '../src/sessions.ts';
 import type { GamePhotoRecord } from "../src/sessions.ts";
@@ -17,6 +18,7 @@ export class MemoryGameRepository implements GameRepository {
   readonly answers = new Map<string, GameAnswerRecord>();
   readonly challenges = new Map<string, ChallengeStorageRecord>();
   readonly visitors = new Map<string, VisitorRecord>();
+  readonly comments = new Map<string, CommentRecord>();
   readonly visitorSessions = new Map<string, VisitorSessionRecord>();
   readonly rateEvents: { scope: string; subjectHash: string; createdAt: string }[] = [];
   readonly bests = new Map<string, LeaderboardBestRecord>();
@@ -121,6 +123,40 @@ export class MemoryGameRepository implements GameRepository {
   async findVisitorByUsernameKey(key: string): Promise<VisitorRecord | null> { return [...this.visitors.values()].find((v) => v.usernameKey === key) ?? null; }
   async findVisitorByEmailVerifier(verifier: string): Promise<VisitorRecord | null> { return [...this.visitors.values()].find((v) => v.emailVerifier === verifier) ?? null; }
   async getVisitor(id: string): Promise<VisitorRecord | null> { return this.visitors.get(id) ?? null; }
+  async getComment(id: string): Promise<CommentRecord | null> { return this.comments.get(id) ?? null; }
+  async getCommentBySubmission(visitorId: string, key: string): Promise<CommentRecord | null> { return [...this.comments.values()].find((item) => item.visitorId === visitorId && item.submissionKey === key) ?? null; }
+  async insertCommentIfUnderLimit(comment: CommentRecord, since: string, max: number): Promise<boolean> {
+    if ([...this.comments.values()].filter((item) => item.visitorId === comment.visitorId && item.createdAt >= since).length >= max) return false;
+    if (await this.getCommentBySubmission(comment.visitorId, comment.submissionKey)) throw new Error('unique_submission');
+    this.comments.set(comment.id, comment);
+    return true;
+  }
+  async listComments(targetType: CommentTargetType, targetId: string, offset: number, limit: number): Promise<CommentRecord[]> {
+    return [...this.comments.values()].filter((item) => !item.deletedAt && item.targetType === targetType && item.targetId === targetId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)).slice(offset, offset + limit);
+  }
+  async listRecentComments(offset: number, limit: number): Promise<CommentRecord[]> {
+    return [...this.comments.values()].filter((item) => !item.deletedAt)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)).slice(offset, offset + limit);
+  }
+  async updateCommentBody(id: string, visitorId: string, body: string, updatedAt: string): Promise<boolean> {
+    const item = this.comments.get(id);
+    if (!item || item.deletedAt || item.visitorId !== visitorId) return false;
+    this.comments.set(id, { ...item, body, updatedAt, replyBody: null, replyUpdatedAt: null });
+    return true;
+  }
+  async softDeleteComment(id: string, visitorId: string | null, deletedAt: string): Promise<boolean> {
+    const item = this.comments.get(id);
+    if (!item || item.deletedAt || (visitorId && item.visitorId !== visitorId)) return false;
+    this.comments.set(id, { ...item, deletedAt });
+    return true;
+  }
+  async setCommentReply(id: string, body: string | null, updatedAt: string): Promise<boolean> {
+    const item = this.comments.get(id);
+    if (!item || item.deletedAt) return false;
+    this.comments.set(id, { ...item, replyBody: body, replyUpdatedAt: body ? updatedAt : null });
+    return true;
+  }
   async createVisitor(visitor: VisitorRecord): Promise<void> {
     if (await this.findVisitorByUsernameKey(visitor.usernameKey) || await this.findVisitorByEmailVerifier(visitor.emailVerifier)) throw new Error('unique_constraint');
     this.visitors.set(visitor.id, visitor);

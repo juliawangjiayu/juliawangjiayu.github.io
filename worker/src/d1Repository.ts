@@ -9,6 +9,7 @@ import type {
 import { decodeLeaderboardCursor, encodeLeaderboardCursor } from './leaderboards.ts';
 import type { GameMode } from './sessions.ts';
 import type { AiPlaceConfigRecord } from "./aiPlaces.ts";
+import type { CommentRecord, CommentTargetType } from './comments.ts';
 import type { Difficulty, GamePhotoRecord } from "./sessions.ts";
 
 export interface D1PreparedStatementLike {
@@ -149,12 +150,14 @@ function mapAiPlaceConfig(row: AiPlaceConfigRow): AiPlaceConfigRecord {
 
 
 interface VisitorRow { id: string; username: string; username_key: string; email_verifier: string; created_at: string; updated_at: string }
+interface CommentRow { id: string; visitor_id: string; username: string; target_type: CommentTargetType; target_id: string; body: string; submission_key: string; created_at: string; updated_at: string; deleted_at: string | null; reply_body: string | null; reply_updated_at: string | null }
 interface VisitorSessionRow { token_hash: string; visitor_id: string; created_at: string; last_seen_at: string; expires_at: string }
 interface BestRow { visitor_id: string; mode: GameMode; score: number; session_id: string; achieved_at: string; updated_at: string }
 interface RandomRunRow { token_hash: string; season_id: string; question_ids: string; created_at: string; claimed_by_visitor_id: string | null; claimed_at: string | null }
 interface RandomBatchRow { batch_index: number; session_id: string }
 interface RandomBestRow { visitor_id: string; season_id: string; score: number; run_token_hash: string; achieved_at: string; updated_at: string }
 function mapVisitor(row: VisitorRow): VisitorRecord { return { id: row.id, username: row.username, usernameKey: row.username_key, emailVerifier: row.email_verifier, createdAt: row.created_at, updatedAt: row.updated_at }; }
+function mapComment(row: CommentRow): CommentRecord { return { id: row.id, visitorId: row.visitor_id, username: row.username, targetType: row.target_type, targetId: row.target_id, body: row.body, submissionKey: row.submission_key, createdAt: row.created_at, updatedAt: row.updated_at, deletedAt: row.deleted_at, replyBody: row.reply_body, replyUpdatedAt: row.reply_updated_at }; }
 function mapVisitorSession(row: VisitorSessionRow): VisitorSessionRecord { return { tokenHash: row.token_hash, visitorId: row.visitor_id, createdAt: row.created_at, lastSeenAt: row.last_seen_at, expiresAt: row.expires_at }; }
 function mapBest(row: BestRow): LeaderboardBestRecord { return { visitorId: row.visitor_id, mode: row.mode, score: row.score, sessionId: row.session_id, achievedAt: row.achieved_at, updatedAt: row.updated_at }; }
 function mapRandomBest(row: RandomBestRow): LeaderboardBestRecord { return { visitorId: row.visitor_id, mode: 'random', score: row.score, sessionId: row.run_token_hash, achievedAt: row.achieved_at, updatedAt: row.updated_at, seasonId: row.season_id }; }
@@ -423,6 +426,46 @@ export class D1GameRepository implements GameRepository {
   async findVisitorByUsernameKey(key: string): Promise<VisitorRecord | null> { const row = await this.database.prepare('SELECT * FROM visitors WHERE username_key = ?').bind(key).first<VisitorRow>(); return row ? mapVisitor(row) : null; }
   async findVisitorByEmailVerifier(verifier: string): Promise<VisitorRecord | null> { const row = await this.database.prepare('SELECT * FROM visitors WHERE email_verifier = ?').bind(verifier).first<VisitorRow>(); return row ? mapVisitor(row) : null; }
   async getVisitor(id: string): Promise<VisitorRecord | null> { const row = await this.database.prepare('SELECT * FROM visitors WHERE id = ?').bind(id).first<VisitorRow>(); return row ? mapVisitor(row) : null; }
+  async getComment(id: string): Promise<CommentRecord | null> {
+    const row = await this.database.prepare('SELECT c.*, v.username FROM comments c JOIN visitors v ON v.id = c.visitor_id WHERE c.id = ?').bind(id).first<CommentRow>();
+    return row ? mapComment(row) : null;
+  }
+  async getCommentBySubmission(visitorId: string, key: string): Promise<CommentRecord | null> {
+    const row = await this.database.prepare('SELECT c.*, v.username FROM comments c JOIN visitors v ON v.id = c.visitor_id WHERE c.visitor_id = ? AND c.submission_key = ?').bind(visitorId, key).first<CommentRow>();
+    return row ? mapComment(row) : null;
+  }
+  async insertCommentIfUnderLimit(comment: CommentRecord, since: string, max: number): Promise<boolean> {
+    const write = await this.database.prepare(`INSERT INTO comments (id, visitor_id, target_type, target_id, body, submission_key, created_at, updated_at)
+      SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM comments WHERE visitor_id = ? AND created_at >= ?) < ?`)
+      .bind(comment.id, comment.visitorId, comment.targetType, comment.targetId, comment.body, comment.submissionKey, comment.createdAt, comment.updatedAt, comment.visitorId, since, max).run();
+    return ((write as { meta?: { changes?: number } }).meta?.changes ?? 0) > 0;
+  }
+  async listComments(targetType: CommentTargetType, targetId: string, offset: number, limit: number): Promise<CommentRecord[]> {
+    const rows = await this.database.prepare(`SELECT c.*, v.username FROM comments c JOIN visitors v ON v.id = c.visitor_id
+      WHERE c.target_type = ? AND c.target_id = ? AND c.deleted_at IS NULL ORDER BY c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`)
+      .bind(targetType, targetId, limit, offset).all<CommentRow>();
+    return (rows.results ?? []).map(mapComment);
+  }
+  async listRecentComments(offset: number, limit: number): Promise<CommentRecord[]> {
+    const rows = await this.database.prepare(`SELECT c.*, v.username FROM comments c JOIN visitors v ON v.id = c.visitor_id
+      WHERE c.deleted_at IS NULL ORDER BY c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(limit, offset).all<CommentRow>();
+    return (rows.results ?? []).map(mapComment);
+  }
+  async updateCommentBody(id: string, visitorId: string, body: string, updatedAt: string): Promise<boolean> {
+    const write = await this.database.prepare('UPDATE comments SET body = ?, updated_at = ?, reply_body = NULL, reply_updated_at = NULL WHERE id = ? AND visitor_id = ? AND deleted_at IS NULL').bind(body, updatedAt, id, visitorId).run();
+    return ((write as { meta?: { changes?: number } }).meta?.changes ?? 0) > 0;
+  }
+  async softDeleteComment(id: string, visitorId: string | null, deletedAt: string): Promise<boolean> {
+    const sql = visitorId
+      ? 'UPDATE comments SET deleted_at = ? WHERE id = ? AND visitor_id = ? AND deleted_at IS NULL'
+      : 'UPDATE comments SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL';
+    const write = await this.database.prepare(sql).bind(...(visitorId ? [deletedAt, id, visitorId] : [deletedAt, id])).run();
+    return ((write as { meta?: { changes?: number } }).meta?.changes ?? 0) > 0;
+  }
+  async setCommentReply(id: string, body: string | null, updatedAt: string): Promise<boolean> {
+    const write = await this.database.prepare('UPDATE comments SET reply_body = ?, reply_updated_at = ? WHERE id = ? AND deleted_at IS NULL').bind(body, body ? updatedAt : null, id).run();
+    return ((write as { meta?: { changes?: number } }).meta?.changes ?? 0) > 0;
+  }
   async createVisitor(visitor: VisitorRecord): Promise<void> { await this.database.prepare('INSERT INTO visitors (id, username, username_key, email_verifier, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(visitor.id, visitor.username, visitor.usernameKey, visitor.emailVerifier, visitor.createdAt, visitor.updatedAt).run(); }
   async createVisitorSession(session: VisitorSessionRecord): Promise<void> { await this.database.prepare('INSERT INTO visitor_sessions (token_hash, visitor_id, created_at, last_seen_at, expires_at) VALUES (?, ?, ?, ?, ?)').bind(session.tokenHash, session.visitorId, session.createdAt, session.lastSeenAt, session.expiresAt).run(); }
   async getVisitorSession(hash: string): Promise<VisitorSessionRecord | null> { const row = await this.database.prepare('SELECT * FROM visitor_sessions WHERE token_hash = ?').bind(hash).first<VisitorSessionRow>(); return row ? mapVisitorSession(row) : null; }

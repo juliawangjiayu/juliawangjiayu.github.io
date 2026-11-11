@@ -3,7 +3,8 @@ import { Hono, type Context, type Next } from "hono";
 import { cors } from "hono/cors";
 import { z } from "zod";
 
-import { bearerToken, requireVisitor, AuthenticationError } from './auth.ts';
+import { bearerToken, optionalVisitor, requireVisitor, AuthenticationError } from './auth.ts';
+import { normalizeCommentBody, publicComment } from './comments.ts';
 import { IdentityError, fingerprintIp } from './identity.ts';
 import { IdentityService } from './identityService.ts';
 import { enforceRateLimit } from './rateLimit.ts';
@@ -33,6 +34,10 @@ const answerSchema = z.object({
 });
 const challengeSchema = z.object({ sessionId: z.string().min(1) }).strict();
 const identitySchema = z.object({ username: z.string(), email: z.string() }).strict();
+const commentTargetSchema = z.enum(['photo', 'collection']);
+const commentIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+const commentCreateSchema = z.object({ targetType: commentTargetSchema, targetId: commentIdSchema, body: z.string().max(2000) }).strict();
+const commentEditSchema = z.object({ body: z.string().max(2000) }).strict();
 const leaderboardSaveSchema = z.object({ sessionId: z.string().min(1) }).strict();
 const randomStartSchema = z.object({ token: z.string().min(1).max(256).optional() }).strict();
 const randomTokenSchema = z.object({ token: z.string().min(1).max(256) }).strict();
@@ -79,7 +84,7 @@ const aiPlaceReleaseSchema = z.object({
 const interpretPlaceSchema = z.object({ text: z.string().min(1).max(500) });
 
 export interface GameAppOptions {
-  createId?: (kind: "session" | "challenge" | "visitor") => string;
+  createId?: (kind: "session" | "challenge" | "visitor" | "comment") => string;
   now?: () => string;
   allowedOrigins?: string[];
   adminToken?: string;
@@ -89,7 +94,7 @@ export interface GameAppOptions {
   visitorIdentityPepper?: string;
 }
 
-function defaultCreateId(kind: "session" | "challenge" | "visitor"): string {
+function defaultCreateId(kind: "session" | "challenge" | "visitor" | "comment"): string {
   return `${kind}_${crypto.randomUUID()}`;
 }
 
@@ -140,6 +145,9 @@ export function createGameApp(repository: GameRepository, options: GameAppOption
     return next();
   };
   app.use('/api/identity/*', smallBody);
+  app.use('/api/comments', smallBody);
+  app.use('/api/comments/*', smallBody);
+  app.use('/api/admin/comments/*', smallBody);
   app.use('/api/challenges', smallBody);
   app.use('/api/leaderboards/*', smallBody);
   app.use('/api/game/:sessionId/claim', smallBody);
@@ -196,6 +204,77 @@ export function createGameApp(repository: GameRepository, options: GameAppOption
     return context.body(null, 204);
   });
 
+  const commentVisitor = async (request: Request) => {
+    if (!identity) return null;
+    return optionalVisitor(request, identity);
+  };
+  const commentAuth = async (request: Request) => {
+    if (!identity) return { failure: { status: 503 as const, code: 'identity_not_configured', message: 'Visitor identity is not configured.' } };
+    try { return { visitor: await visitorFor(request) }; }
+    catch (cause) { if (cause instanceof AuthenticationError) return { failure: { status: 401 as const, code: cause.code, message: cause.message } }; throw cause; }
+  };
+  const commentBody = (value: string) => {
+    try { return normalizeCommentBody(value); } catch { return null; }
+  };
+  const commentPage = async (targetType: 'photo' | 'collection', targetId: string, offset: number, viewerId: string | null) => {
+    const records = await repository.listComments(targetType, targetId, offset, 21);
+    return { comments: records.slice(0, 20).map((record) => publicComment(record, viewerId)), hasMore: records.length > 20 };
+  };
+
+  app.get('/api/comments', async (context) => {
+    const targetType = commentTargetSchema.safeParse(context.req.query('targetType'));
+    const targetId = commentIdSchema.safeParse(context.req.query('targetId'));
+    const rawOffset = context.req.query('offset') ?? '0';
+    const offset = Number(rawOffset);
+    if (!targetType.success || !targetId.success || !Number.isInteger(offset) || offset < 0 || offset > 10000) return context.json(error('invalid_request', 'Provide a valid target and offset.'), 400);
+    const visitor = await commentVisitor(context.req.raw);
+    return context.json(await commentPage(targetType.data, targetId.data, offset, visitor?.id ?? null));
+  });
+
+  app.post('/api/comments', async (context) => {
+    const auth = await commentAuth(context.req.raw);
+    if (auth.failure) return context.json(error(auth.failure.code, auth.failure.message), auth.failure.status);
+    const key = context.req.header('idempotency-key') ?? '';
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(key)) return context.json(error('invalid_idempotency_key', 'A valid idempotency key is required.'), 400);
+    const parsed = commentCreateSchema.safeParse(await context.req.json().catch(() => null));
+    if (!parsed.success) return context.json(error('invalid_request', 'Provide a valid message and target.'), 400);
+    const body = commentBody(parsed.data.body);
+    if (!body) return context.json(error('invalid_comment_body', 'Write a message of at most 500 characters.'), 400);
+    const visitor = auth.visitor!;
+    const existing = await repository.getCommentBySubmission(visitor.id, key);
+    if (existing) return existing.deletedAt ? context.json(error('comment_deleted', 'This message was deleted.'), 409) : context.json({ comment: publicComment(existing, visitor.id) }, 200);
+    const timestamp = now();
+    const record = { id: createId('comment'), visitorId: visitor.id, username: visitor.username, targetType: parsed.data.targetType, targetId: parsed.data.targetId, body, submissionKey: key, createdAt: timestamp, updatedAt: timestamp, deletedAt: null, replyBody: null, replyUpdatedAt: null };
+    const since = new Date(Date.parse(timestamp) - 60_000).toISOString();
+    try {
+      if (!await repository.insertCommentIfUnderLimit(record, since, 3)) return context.json(error('rate_limited', 'You can leave at most 3 messages per minute. Please wait and try again.'), 429);
+    } catch (cause) {
+      const duplicate = await repository.getCommentBySubmission(visitor.id, key);
+      if (duplicate) return duplicate.deletedAt ? context.json(error('comment_deleted', 'This message was deleted.'), 409) : context.json({ comment: publicComment(duplicate, visitor.id) }, 200);
+      throw cause;
+    }
+    return context.json({ comment: publicComment(record, visitor.id) }, 201);
+  });
+
+  app.patch('/api/comments/:id', async (context) => {
+    const auth = await commentAuth(context.req.raw);
+    if (auth.failure) return context.json(error(auth.failure.code, auth.failure.message), auth.failure.status);
+    const parsed = commentEditSchema.safeParse(await context.req.json().catch(() => null));
+    if (!parsed.success) return context.json(error('invalid_request', 'Provide a message body.'), 400);
+    const body = commentBody(parsed.data.body);
+    if (!body) return context.json(error('invalid_comment_body', 'Write a message of at most 500 characters.'), 400);
+    const id = context.req.param('id');
+    if (!await repository.updateCommentBody(id, auth.visitor!.id, body, now())) return context.json(error('comment_not_found', 'Message not found.'), 404);
+    return context.json({ comment: publicComment((await repository.getComment(id))!, auth.visitor!.id) });
+  });
+
+  app.delete('/api/comments/:id', async (context) => {
+    const auth = await commentAuth(context.req.raw);
+    if (auth.failure) return context.json(error(auth.failure.code, auth.failure.message), auth.failure.status);
+    if (!await repository.softDeleteComment(context.req.param('id'), auth.visitor!.id, now())) return context.json(error('comment_not_found', 'Message not found.'), 404);
+    return context.body(null, 204);
+  });
+
 
   app.use("/api/admin/*", async (context, next) => {
     if (!options.adminToken) {
@@ -207,6 +286,31 @@ export function createGameApp(repository: GameRepository, options: GameAppOption
     }
 
     await next();
+  });
+
+  app.get('/api/admin/comments', async (context) => {
+    const offset = Number(context.req.query('offset') ?? '0');
+    if (!Number.isInteger(offset) || offset < 0 || offset > 10000) return context.json(error('invalid_offset', 'Offset must be a nonnegative integer.'), 400);
+    const records = await repository.listRecentComments(offset, 51);
+    return context.json({ comments: records.slice(0, 50).map((item) => publicComment(item, null)), hasMore: records.length > 50 });
+  });
+  app.delete('/api/admin/comments/:id', async (context) => {
+    if (!await repository.softDeleteComment(context.req.param('id'), null, now())) return context.json(error('comment_not_found', 'Message not found.'), 404);
+    return context.body(null, 204);
+  });
+  app.put('/api/admin/comments/:id/reply', async (context) => {
+    const parsed = commentEditSchema.safeParse(await context.req.json().catch(() => null));
+    if (!parsed.success) return context.json(error('invalid_request', 'Provide a reply body.'), 400);
+    const body = commentBody(parsed.data.body);
+    if (!body) return context.json(error('invalid_comment_body', 'Write a reply of at most 500 characters.'), 400);
+    const id = context.req.param('id');
+    if (!await repository.setCommentReply(id, body, now())) return context.json(error('comment_not_found', 'Message not found.'), 404);
+    return context.json({ comment: publicComment((await repository.getComment(id))!, null) });
+  });
+  app.delete('/api/admin/comments/:id/reply', async (context) => {
+    const id = context.req.param('id');
+    if (!await repository.setCommentReply(id, null, now())) return context.json(error('comment_not_found', 'Message not found.'), 404);
+    return context.body(null, 204);
   });
 
   app.post(
