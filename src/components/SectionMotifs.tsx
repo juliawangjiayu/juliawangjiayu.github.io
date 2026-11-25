@@ -30,6 +30,21 @@ export function WitchMotif({ className }: MotifProps) {
   );
 }
 
+export function MailboxMotif({ className }: MotifProps) {
+  return (
+    <svg aria-hidden="true" className={className} focusable="false" viewBox="0 0 180 130">
+      <path d="M27 105V61c0-24 19-43 43-43h40c24 0 43 19 43 43v44Z" fill="var(--mailbox-body, #b8a6ca)" stroke="currentColor" strokeLinejoin="round" strokeWidth="2.5" />
+      <path d="M89 19c23 1 41 20 41 43v43" fill="none" opacity=".34" stroke="currentColor" strokeWidth="2" />
+      <path d="M36 105h126" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="3" />
+      <path d="M47 60h45" fill="none" stroke="var(--mailbox-paper, #f7f0df)" strokeLinecap="round" strokeWidth="5" />
+      <path d="M112 58V25h23" fill="none" stroke="#a77b52" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
+      <path d="M135 25v16h-23" fill="#d3a86d" stroke="#a77b52" strokeLinejoin="round" strokeWidth="2.5" />
+      <path d="m66 77 5 7 8 2-6 6 1 8-8-4-7 4 1-8-6-6 8-2Z" fill="#e3bd7c" />
+      <path d="M48 113h87" fill="none" opacity=".32" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+    </svg>
+  );
+}
+
 export function FlightTrail({ className }: MotifProps) {
   return (
     <svg aria-hidden="true" className={className} focusable="false" viewBox="0 0 250 160">

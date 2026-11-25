@@ -6,7 +6,7 @@ import { FiveRoundReview } from '../components/FiveRoundReview.tsx';
 import { LeaderboardTable } from '../components/LeaderboardTable.tsx';
 import { AppLink } from '../components/AppLink.tsx';
 import { useVisitorIdentity } from '../components/VisitorIdentityProvider.tsx';
-import { FlightTrail, WitchMotif } from '../components/SectionMotifs.tsx';
+import { FlightTrail, MailboxMotif, WitchMotif } from '../components/SectionMotifs.tsx';
 import {
   createChallenge,
   getRandomJourneyProgress,
@@ -413,19 +413,24 @@ export function GuessWherePage({ challengeId }: GuessWherePageProps) {
           </section>
         ) : (
           <>
-            <div className="guess-modes" aria-label="Game modes">
-              {modes.map((mode) => (
-                <button
-                  className="guess-mode"
-                  disabled={busy || Boolean(challengeId) || (mode.id === 'random' && Boolean(randomRun?.complete))}
-                  key={mode.id}
-                  onClick={() => void beginMode(mode.id)}
-                  type="button"
-                >
-                  <span>{mode.name}</span>
-                  <small>{mode.id === 'random' && randomRun ? randomJourneyCopy(randomRun) : mode.note}</small>
-                </button>
-              ))}
+            <div className="guess-post-office">
+              <div className="guess-post-office__sign" aria-hidden="true"><span>Choose one set</span><i>✦</i></div>
+              <div className="guess-modes guess-post-office__shelf" aria-label="Game modes">
+                {modes.map((mode) => (
+                  <button
+                    className="guess-mode"
+                    disabled={busy || Boolean(challengeId) || (mode.id === 'random' && Boolean(randomRun?.complete))}
+                    key={mode.id}
+                    onClick={() => void beginMode(mode.id)}
+                    type="button"
+                  >
+                    <MailboxMotif className="guess-mode__mailbox" />
+                    <span>{mode.name}</span>
+                    <small>{mode.id === 'random' && randomRun ? randomJourneyCopy(randomRun) : mode.note}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="guess-post-office__base" aria-hidden="true" />
             </div>
             <aside aria-label="How Random works" className="guess-intro__random-rules">
               <p><strong>No repeats here</strong><span>Play anonymously. This browser remembers answered photos, so your next batch brings new ones. Other browsers or cleared browser data may repeat photos.</span></p>

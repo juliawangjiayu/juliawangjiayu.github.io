@@ -124,11 +124,14 @@
   font-size: 13px;
 }
 
-/* The witch and flight line are static accents on both Guess Where screens. */
+/* The landing screen is a quiet magical post office; the game keeps the same flight accents. */
 .guess-intro {
   position: relative;
   align-items: center;
-  padding-top: clamp(48px, 7vh, 90px);
+  justify-content: center;
+  min-height: calc(100svh - var(--header-height));
+  padding-top: clamp(12px, 2.2vh, 28px);
+  padding-bottom: clamp(20px, 3vh, 36px);
 }
 
 .guess-intro__heading {
@@ -139,19 +142,25 @@
   text-align: center;
 }
 
+.guess-intro .page-kicker {
+  margin-bottom: 8px;
+}
+
 .guess-intro h1 {
   font-family: var(--round);
-  font-size: clamp(57px, 7.7vw, 100px);
+  font-size: clamp(54px, 6.6vw, 88px);
   font-weight: 650;
+  line-height: .96;
   letter-spacing: -0.075em;
 }
 
 .guess-intro__heading > p:last-of-type {
   max-width: 570px;
-  margin: 18px auto 0;
+  margin: 10px auto 0;
   color: var(--ink-soft);
   font-family: var(--serif);
-  font-size: 21px;
+  font-size: clamp(17px, 1.5vw, 20px);
+  line-height: 1.35;
 }
 
 .guess-intro__witch {
@@ -175,56 +184,170 @@
   pointer-events: none;
 }
 
-.guess-modes {
-  z-index: 1;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  width: min(950px, 100%);
-  margin-top: 48px;
-  border: 0;
-}
-
-.site-shell--guess .guess-mode,
-.site-shell--guess .guess-mode:last-child {
+.guess-post-office {
   position: relative;
-  min-height: 166px;
-  border: 1px solid rgba(89, 77, 111, 0.21);
-  padding: 23px 25px;
-  background: rgba(255, 255, 255, 0.34);
+  z-index: 1;
+  width: min(1080px, 100%);
+  margin-top: clamp(17px, 2.6vh, 28px);
 }
 
-.site-shell--guess .guess-mode::before {
+.guess-post-office__sign {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: fit-content;
+  margin: 0 auto -1px;
+  border: 1px solid rgba(105, 83, 72, .28);
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+  padding: 5px 18px 4px;
+  background: #e2d7c4;
+  color: #68574c;
+  font-family: var(--round);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.guess-post-office__sign i {
+  color: #a77b52;
+  font: 14px var(--serif);
+}
+
+.guess-modes.guess-post-office__shelf {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  width: 100%;
+  margin: 0;
+  border: 7px solid #c7b9a3;
+  border-radius: 15px 15px 4px 4px;
+  padding: 0;
+  background: #c7b9a3;
+  box-shadow: 0 14px 28px rgba(72, 59, 82, .09);
+}
+
+.site-shell--guess .guess-post-office__shelf .guess-mode,
+.site-shell--guess .guess-post-office__shelf .guess-mode:last-child {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 196px;
+  align-items: center;
+  flex-direction: column;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 7px 7px 2px 2px;
+  padding: 10px 12px 14px;
+  background: linear-gradient(180deg, rgba(253, 251, 255, .8), rgba(245, 239, 248, .7));
+  text-align: center;
+}
+
+.site-shell--guess .guess-post-office__shelf .guess-mode::before {
   position: absolute;
-  top: 15px;
-  right: 20px;
+  top: 8px;
+  right: 11px;
   color: #b99263;
   content: '✧';
-  font: 27px var(--serif);
+  font: 20px var(--serif);
 }
 
-.site-shell--guess .guess-mode:nth-child(odd)::before {
+.site-shell--guess .guess-post-office__shelf .guess-mode:nth-child(odd)::before {
   content: '✦';
 }
 
-.site-shell--guess .guess-mode span {
+.guess-mode__mailbox {
+  width: 108px;
+  height: 78px;
+  color: #665d73;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 7px 7px rgba(55, 52, 73, .1));
+  transition: transform 170ms ease;
+}
+
+.guess-mode:nth-child(1) .guess-mode__mailbox { --mailbox-body: #b9c9bd; }
+.guess-mode:nth-child(2) .guess-mode__mailbox { --mailbox-body: #c8b9d4; }
+.guess-mode:nth-child(3) .guess-mode__mailbox { --mailbox-body: #b5aec8; }
+.guess-mode:nth-child(4) .guess-mode__mailbox { --mailbox-body: #d8b6a9; }
+
+.site-shell--guess .guess-post-office__shelf .guess-mode > span {
   font-family: var(--round);
-  font-size: clamp(26px, 3vw, 33px);
+  font-size: clamp(21px, 2vw, 27px);
   font-weight: 600;
+  line-height: 1;
   letter-spacing: -0.05em;
 }
 
-.site-shell--guess .guess-mode small {
+.site-shell--guess .guess-post-office__shelf .guess-mode small {
+  max-width: 210px;
   margin-top: 7px;
-  font-size: 14px;
+  font-size: 12px;
+  line-height: 1.32;
 }
 
-.site-shell--guess .guess-mode:not(:disabled) {
+.site-shell--guess .guess-post-office__shelf .guess-mode:not(:disabled) {
   transition: none;
 }
 
-.site-shell--guess .guess-mode:not(:disabled):hover {
-  padding-left: 25px;
-  background: rgba(255, 255, 255, 0.65);
+.site-shell--guess .guess-post-office__shelf .guess-mode:not(:disabled):hover {
+  padding-left: 12px;
+  background: rgba(255, 255, 255, .93);
+}
+
+.site-shell--guess .guess-post-office__shelf .guess-mode:not(:disabled):hover .guess-mode__mailbox {
+  transform: translateY(-3px);
+}
+
+.guess-post-office__base {
+  width: calc(100% + 22px);
+  height: 12px;
+  margin-left: -11px;
+  border-radius: 3px 3px 8px 8px;
+  background: linear-gradient(180deg, #a99880, #c9baa4);
+  box-shadow: 0 9px 16px rgba(72, 59, 82, .08);
+}
+
+.site-shell--guess .guess-intro__random-rules {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+  width: min(1080px, 100%);
+  margin: 11px auto 0;
+  border: 0;
+  border-top: 1px solid rgba(89, 77, 111, .18);
+  border-radius: 0;
+  padding: 9px 4px 0;
+  background: transparent;
+}
+
+.site-shell--guess .guess-intro__random-rules p {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px;
+}
+
+.site-shell--guess .guess-intro__random-rules strong {
+  margin: 0;
+  font-family: var(--round);
+  font-size: 12px;
+}
+
+.site-shell--guess .guess-intro__random-rules span {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.site-shell--guess .guess-intro__leaderboard {
+  margin-top: 11px;
+  font-size: 14px;
+}
+
+.site-shell--guess .guess-intro__visitor {
+  margin-top: 10px;
 }
 
 .site-shell--guess .challenge-invite {
@@ -308,6 +431,49 @@
   font-family: var(--round);
 }
 
+@media (max-width: 980px) {
+  .guess-intro {
+    justify-content: flex-start;
+    padding-top: 32px;
+  }
+
+  .guess-modes.guess-post-office__shelf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-shell--guess .guess-post-office__shelf .guess-mode,
+  .site-shell--guess .guess-post-office__shelf .guess-mode:last-child {
+    min-height: 174px;
+  }
+
+  .site-shell--guess .guess-intro__random-rules {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (min-width: 981px) and (max-height: 760px) {
+  .guess-intro h1 {
+    font-size: 65px;
+  }
+
+  .guess-post-office {
+    margin-top: 13px;
+  }
+
+  .site-shell--guess .guess-post-office__shelf .guess-mode,
+  .site-shell--guess .guess-post-office__shelf .guess-mode:last-child {
+    min-height: 170px;
+    padding-top: 5px;
+  }
+
+  .guess-mode__mailbox {
+    width: 90px;
+    height: 65px;
+  }
+}
+
 @media (max-width: 760px) {
   .collections-heading__title h1 {
     font-size: clamp(52px, 10vw, 77px);
@@ -373,25 +539,30 @@
     font-size: 17px;
   }
 
-  .guess-modes {
+  .guess-modes.guess-post-office__shelf {
     gap: 10px;
   }
 
-  .site-shell--guess .guess-mode,
-  .site-shell--guess .guess-mode:last-child {
+  .site-shell--guess .guess-post-office__shelf .guess-mode,
+  .site-shell--guess .guess-post-office__shelf .guess-mode:last-child {
     min-height: 145px;
-    padding: 17px;
+    padding: 8px 12px 12px;
   }
 
-  .site-shell--guess .guess-mode:not(:disabled):hover {
-    padding-left: 17px;
+  .site-shell--guess .guess-post-office__shelf .guess-mode:not(:disabled):hover {
+    padding-left: 12px;
   }
 
-  .site-shell--guess .guess-mode span {
-    font-size: 25px;
+  .guess-mode__mailbox {
+    width: 91px;
+    height: 65px;
   }
 
-  .site-shell--guess .guess-mode small {
+  .site-shell--guess .guess-post-office__shelf .guess-mode > span {
+    font-size: 23px;
+  }
+
+  .site-shell--guess .guess-post-office__shelf .guess-mode small {
     font-size: 12px;
   }
 
@@ -413,13 +584,18 @@
     width: 48px;
   }
 
-  .guess-modes {
+  .guess-modes.guess-post-office__shelf {
     grid-template-columns: 1fr;
   }
 
-  .site-shell--guess .guess-mode,
-  .site-shell--guess .guess-mode:last-child {
-    min-height: 110px;
+  .site-shell--guess .guess-post-office__shelf .guess-mode,
+  .site-shell--guess .guess-post-office__shelf .guess-mode:last-child {
+    min-height: 132px;
+  }
+
+  .site-shell--guess .guess-intro__random-rules p {
+    grid-template-columns: 1fr;
+    gap: 3px;
   }
 
   .guess-game__witch {
